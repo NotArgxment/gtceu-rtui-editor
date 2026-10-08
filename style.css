@@ -148,3 +148,37 @@ canvas {
     list-style: none;
     margin-left: -18px;
 }
+.vis {
+    width: 300px;
+    overflow: auto;
+    flex: none;
+}
+#tree {
+    max-height: 35%;
+    overflow: auto;
+    border: 1px solid #444a5c;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+#tree div {
+    cursor: pointer;
+    white-space: pre;
+    font:
+        12px ui-monospace,
+        Consolas,
+        monospace;
+    padding: 1px 4px;
+}
+#tree .sel {
+    background: #4a5fb0;
+}
+#insp label {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    margin: 3px 0;
+    font-size: 12px;
+}
+#insp input:not([type="checkbox"]) {
+    width: 160px;
+}
