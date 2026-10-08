@@ -1,8 +1,7 @@
 # Yes this is entirely made by AI, dont expect this to work at all
 **made because i dont want to use ceu editor**
 
-RTUI Editor (personal use)
-Open index.html in a browser (Chrome/Edge/Firefox). Works offline, nothing is uploaded.
+RTUI Editor
 - Drop an existing .rtui, or create a new one: file name -> recipe type -> editor.
 - Left: readable text (SNBT: 1b = byte, 0.5f = float, 0.5d = double, 1 = int, 1L = long).
   "root" = widget tree, "resources" = texture library. Invalid text is ignored until fixed.
