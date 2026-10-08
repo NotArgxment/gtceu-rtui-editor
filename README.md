@@ -1,3 +1,5 @@
+# Yes this is entirely made by AI, dont expect this to work at all 
+
 RTUI Editor (personal use)
 Open index.html in a browser (Chrome/Edge/Firefox). Works offline, nothing is uploaded.
 - Drop an existing .rtui, or create a new one: file name -> recipe type -> editor.
