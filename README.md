@@ -1,4 +1,5 @@
-# Yes this is entirely made by AI, dont expect this to work at all 
+# Yes this is entirely made by AI, dont expect this to work at all
+**made because i dont want to use ceu editor**
 
 RTUI Editor (personal use)
 Open index.html in a browser (Chrome/Edge/Firefox). Works offline, nothing is uploaded.
