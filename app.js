@@ -27,7 +27,19 @@ async function loadBytes(u8, name) {
                     .pipeThrough(new DecompressionStream("gzip")),
             ).arrayBuffer(),
         );
-    const { tag } = readNbt(u8);
+    let tag;
+    try {
+        tag = readNbt(u8).tag;
+    } catch (e) {
+        let n = 0;
+        for (let i = 0; i + 2 < u8.length; i++)
+            if (u8[i] === 0xef && u8[i + 1] === 0xbf && u8[i + 2] === 0xbd) n++;
+        throw new Error(
+            n
+                ? `Bad NBT: this file was damaged by a text-encoding conversion (${n} replacement characters found, null bytes stripped). It was probably opened/saved/copied as text. Use the original, untouched file (zip it before sending or copying).`
+                : "Bad NBT: " + e.message,
+        );
+    }
     if (tag.t !== 10 || !tag.v.has("root"))
         throw new Error('Not an .rtui file (no "root" compound)');
     S.name = name;
@@ -63,7 +75,9 @@ $("n1").onclick = () => {
     $("step2").hidden = false;
     $("nType").focus();
 };
-$("nName").onkeydown = (e) => e.key === "Enter" && $("n1").click();
+$("nName").onkeydown = (e) => {
+    if (e.key === "Enter") $("n1").click();
+};
 $("nType").oninput = () => {
     const t = $("nType").value.trim();
     $("nHint").textContent =
