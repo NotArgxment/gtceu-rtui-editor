@@ -1,0 +1,150 @@
+* {
+    box-sizing: border-box;
+}
+body {
+    margin: 0;
+    background: #1b1d23;
+    color: #dde;
+    font:
+        14px system-ui,
+        sans-serif;
+}
+header {
+    padding: 10px 16px;
+    background: #14161b;
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+}
+.muted {
+    color: #889;
+    font-size: 12px;
+}
+.center {
+    text-align: center;
+    margin: 14px;
+}
+section {
+    padding: 16px;
+}
+#s1 {
+    max-width: 640px;
+    margin: auto;
+}
+#drop {
+    border: 2px dashed #556;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+}
+#drop.over {
+    border-color: #4a9;
+    background: #1f2a2a;
+}
+.link {
+    color: #6bf;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.card {
+    background: #242731;
+    padding: 16px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+input,
+select,
+textarea,
+button {
+    background: #2d3140;
+    color: #dde;
+    border: 1px solid #444a5c;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font: inherit;
+}
+button {
+    cursor: pointer;
+}
+button:hover {
+    background: #3a4057;
+}
+.pri {
+    background: #2a7a5a;
+}
+.tab.on {
+    background: #4a5fb0;
+}
+.bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+code {
+    background: #2d3140;
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+.split {
+    display: flex;
+    gap: 14px;
+    height: calc(100vh - 150px);
+}
+.left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+textarea {
+    flex: 1;
+    font:
+        12px/1.4 ui-monospace,
+        Consolas,
+        monospace;
+    resize: none;
+    white-space: pre;
+    tab-size: 2;
+}
+.right {
+    flex: 1;
+    overflow: auto;
+    min-width: 0;
+}
+.cv {
+    background: #c6c6c6;
+    padding: 10px;
+    border-radius: 8px;
+    display: inline-block;
+    max-width: 100%;
+    overflow: auto;
+}
+canvas {
+    image-rendering: pixelated;
+    display: block;
+}
+.bad {
+    color: #f77;
+    font-size: 12px;
+    min-height: 16px;
+    margin-top: 4px;
+}
+#probs {
+    padding-left: 18px;
+    font-size: 13px;
+}
+#probs .w {
+    color: #fc6;
+}
+#probs .e {
+    color: #f77;
+}
+#probs .ok {
+    color: #6d9;
+    list-style: none;
+    margin-left: -18px;
+}
