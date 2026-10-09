@@ -342,4 +342,8 @@
   addAction("Delete", deleteSelection);
   addAction("Select all", selectAllWidgets);
   addAction("Multi-select", (button) => { editor.multiSelect = !editor.multiSelect; button.classList.toggle("on", editor.multiSelect); });
-  addAction(
+  addAction("Pan", (button) => { editor.panMode = !editor.panMode; button.classList.toggle("on", editor.panMode); });
+  
+  const rightBar = document.querySelector(".right .bar");
+  rightBar.after(actionBar);
+})();
