@@ -274,12 +274,35 @@
     e.preventDefault();
   });
 
+  function ioKindOf(d) {
+    let inn = false, out = false;
+    (function rec(x) {
+      const m = /_(in|out)_\d+$/.exec(getChild(x, "id")?.value || "");
+      if (m) m[1] === "in" ? (inn = true) : (out = true);
+      (getChild(x, "children")?.value || []).forEach((w) => getChild(w, "data") && rec(getChild(w, "data")));
+    })(d);
+    return inn && out ? "IN/OUT" : inn ? "INPUT" : out ? "OUTPUT" : "";
+  }
+  function drawIoGroups(c, z) {
+    c.save(); c.setLineDash([]); c.lineWidth = 2; c.strokeStyle = "#000"; c.font = "bold " + Math.round(3.5 * z) + "px monospace";
+    collectWidgets().forEach((n) => {
+      if (!n.wrap || getChild(n.wrap, "type")?.value !== "group") return;
+      const kind = ioKindOf(n.data); if (!kind) return;
+      c.strokeRect(n.x * z, n.y * z, n.w * z, n.h * z);
+      const tw = c.measureText(kind).width + 4, th = Math.round(4.5 * z), ty = Math.max(0, n.y * z - th);
+      c.fillStyle = "#000"; c.fillRect(n.x * z, ty, tw, th);
+      c.fillStyle = "#fff"; c.textBaseline = "middle"; c.fillText(kind, n.x * z + 2, ty + th / 2);
+    });
+    c.restore();
+  }
+
   (function loop() {
     requestAnimationFrame(loop);
     if (byId("s2").hidden) return;
     if (overlayCanvas.width !== previewCanvas.width || overlayCanvas.height !== previewCanvas.height) { overlayCanvas.width = previewCanvas.width; overlayCanvas.height = previewCanvas.height; }
     const c = overlayCanvas.getContext("2d"), z = getZoom(), l = selectedWidgets();
     c.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    if (byId("grp").checked) drawIoGroups(c, z);
     c.setLineDash([]);
     c.strokeStyle = c.fillStyle = SEL_COLOR; c.lineWidth = SEL_WIDTH;
     l.forEach((n) => c.strokeRect(n.x * z, n.y * z, n.w * z, n.h * z));
