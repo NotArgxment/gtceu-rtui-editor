@@ -15,7 +15,11 @@ const TAG = Object.freeze({
 });
 
 const MAX_STRING_BYTES = 65535;
-const ARRAY_PREFIX_TO_KIND = { B: TAG.BYTE_ARRAY, I: TAG.INT_ARRAY, L: TAG.LONG_ARRAY };
+const ARRAY_PREFIX_TO_KIND = {
+    B: TAG.BYTE_ARRAY,
+    I: TAG.INT_ARRAY,
+    L: TAG.LONG_ARRAY,
+};
 const BARE_KEY_PATTERN = /^[\w.+-]+$/;
 const NUMBER_PATTERN = /^(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([bslfdBSLFD]?)$/;
 const INDENT_UNIT = "  ";
@@ -25,20 +29,35 @@ function encodeModifiedUtf8(text) {
     for (let i = 0; i < text.length; i++) {
         const unit = text.charCodeAt(i);
         if (unit >= 0x01 && unit <= 0x7f) encoded.push(unit);
-        else if (unit <= 0x7ff) encoded.push(0xc0 | (unit >> 6), 0x80 | (unit & 0x3f));
-        else encoded.push(0xe0 | (unit >> 12), 0x80 | ((unit >> 6) & 0x3f), 0x80 | (unit & 0x3f));
+        else if (unit <= 0x7ff)
+            encoded.push(0xc0 | (unit >> 6), 0x80 | (unit & 0x3f));
+        else
+            encoded.push(
+                0xe0 | (unit >> 12),
+                0x80 | ((unit >> 6) & 0x3f),
+                0x80 | (unit & 0x3f),
+            );
     }
-    if (encoded.length > MAX_STRING_BYTES) throw new Error("String too long for NBT (>65535 bytes)");
+    if (encoded.length > MAX_STRING_BYTES)
+        throw new Error("String too long for NBT (>65535 bytes)");
     return Uint8Array.from(encoded);
 }
 
 function decodeModifiedUtf8(bytes) {
     let text = "";
-    for (let i = 0; i < bytes.length; ) {
+    for (let i = 0; i < bytes.length;) {
         const first = bytes[i++];
         if (first < 0x80) text += String.fromCharCode(first);
-        else if ((first & 0xe0) === 0xc0) text += String.fromCharCode(((first & 0x1f) << 6) | (bytes[i++] & 0x3f));
-        else text += String.fromCharCode(((first & 0x0f) << 12) | ((bytes[i++] & 0x3f) << 6) | (bytes[i++] & 0x3f));
+        else if ((first & 0xe0) === 0xc0)
+            text += String.fromCharCode(
+                ((first & 0x1f) << 6) | (bytes[i++] & 0x3f),
+            );
+        else
+            text += String.fromCharCode(
+                ((first & 0x0f) << 12) |
+                    ((bytes[i++] & 0x3f) << 6) |
+                    (bytes[i++] & 0x3f),
+            );
     }
     return text;
 }
@@ -50,7 +69,9 @@ function readNbt(bytes) {
     const readString = () => {
         const length = view.getUint16(offset);
         offset += 2;
-        const text = decodeModifiedUtf8(bytes.subarray(offset, offset + length));
+        const text = decodeModifiedUtf8(
+            bytes.subarray(offset, offset + length),
+        );
         offset += length;
         return text;
     };
@@ -102,7 +123,11 @@ function readNbt(bytes) {
                 const count = view.getInt32(offset);
                 offset += 4;
                 const items = [];
-                for (let i = 0; i < count; i++) items.push({ kind: elementKind, value: readPayload(elementKind) });
+                for (let i = 0; i < count; i++)
+                    items.push({
+                        kind: elementKind,
+                        value: readPayload(elementKind),
+                    });
                 return items;
             }
             case TAG.COMPOUND: {
@@ -111,7 +136,10 @@ function readNbt(bytes) {
                     const childKind = view.getInt8(offset++);
                     if (childKind === TAG.END) return children;
                     const name = readString();
-                    children.set(name, { kind: childKind, value: readPayload(childKind) });
+                    children.set(name, {
+                        kind: childKind,
+                        value: readPayload(childKind),
+                    });
                 }
             }
             default:
@@ -131,7 +159,9 @@ function writeNbt(name, tag) {
 
     const ensureCapacity = (extraBytes) => {
         if (offset + extraBytes <= buffer.length) return;
-        const grown = new Uint8Array(Math.max(buffer.length * 2, offset + extraBytes));
+        const grown = new Uint8Array(
+            Math.max(buffer.length * 2, offset + extraBytes),
+        );
         grown.set(buffer);
         buffer = grown;
         view = new DataView(buffer.buffer);
@@ -215,9 +245,9 @@ function writeNbt(name, tag) {
                 view.setInt8(offset++, elementKind);
                 view.setInt32(offset, value.length);
                 offset += 4;
-                for (const element of value) writePayload(elementKind, element.value);
+                for (const element of value)
+                    writePayload(elementKind, element.value);
                 break;
-
             }
             case TAG.COMPOUND:
                 for (const [childName, child] of value) {
@@ -229,7 +259,6 @@ function writeNbt(name, tag) {
                 ensureCapacity(1);
                 view.setInt8(offset++, TAG.END);
                 break;
-
         }
     };
 
@@ -251,7 +280,6 @@ const formatFloat = (number) => {
         if (Math.fround(candidate) === number) {
             number = candidate;
             break;
-
         }
     }
     return formatDouble(number);
@@ -293,16 +321,33 @@ function toSnbt(tag, indent = "") {
 
         case TAG.LIST:
             if (!value.length) return "[]";
-            return "[\n" + value.map((element) => childIndent + toSnbt(element, childIndent)).join(",\n") + "\n" + indent + "]";
-        
+            return (
+                "[\n" +
+                value
+                    .map(
+                        (element) => childIndent + toSnbt(element, childIndent),
+                    )
+                    .join(",\n") +
+                "\n" +
+                indent +
+                "]"
+            );
+
         case TAG.COMPOUND:
             if (!value.size) return "{}";
             return (
                 "{\n" +
                 [...value]
                     .map(([name, child]) => {
-                        const key = BARE_KEY_PATTERN.test(name) ? name : JSON.stringify(name);
-                        return childIndent + key + ": " + toSnbt(child, childIndent);
+                        const key = BARE_KEY_PATTERN.test(name)
+                            ? name
+                            : JSON.stringify(name);
+                        return (
+                            childIndent +
+                            key +
+                            ": " +
+                            toSnbt(child, childIndent)
+                        );
                     })
                     .join(",\n") +
                 "\n" +
@@ -316,7 +361,9 @@ function fromSnbt(text) {
     let pos = 0;
 
     const fail = (message) => {
-        throw new Error(message + " (line " + text.slice(0, pos).split("\n").length + ")");
+        throw new Error(
+            message + " (line " + text.slice(0, pos).split("\n").length + ")",
+        );
     };
     const skipWhitespace = () => {
         while (pos < text.length && /\s/.test(text[pos])) pos++;
@@ -378,7 +425,6 @@ function fromSnbt(text) {
             if (text[pos] === "]") {
                 pos++;
                 break;
-
             }
             items.push(readValue().value);
             skipComma();
@@ -398,12 +444,12 @@ function fromSnbt(text) {
             if (text[pos] === "]") {
                 pos++;
                 break;
-
             }
             items.push(readValue());
             skipComma();
         }
-        if (items.some((item) => item.kind !== items[0].kind)) fail("List mixes types");
+        if (items.some((item) => item.kind !== items[0].kind))
+            fail("List mixes types");
         return { kind: TAG.LIST, value: items };
     };
 
@@ -418,10 +464,17 @@ function fromSnbt(text) {
         const number = +match[1];
         if (suffix === "b") return { kind: TAG.BYTE, value: number };
         if (suffix === "s") return { kind: TAG.SHORT, value: number };
-        if (suffix === "l") return { kind: TAG.LONG, value: BigInt(match[1].split(/[.eE]/)[0]) };
-        if (suffix === "f") return { kind: TAG.FLOAT, value: Math.fround(number) };
+        if (suffix === "l")
+            return {
+                kind: TAG.LONG,
+                value: BigInt(match[1].split(/[.eE]/)[0]),
+            };
+        if (suffix === "f")
+            return { kind: TAG.FLOAT, value: Math.fround(number) };
         if (suffix === "d") return { kind: TAG.DOUBLE, value: number };
-        return /[.eE]/.test(match[1]) ? { kind: TAG.DOUBLE, value: number } : { kind: TAG.INT, value: number };
+        return /[.eE]/.test(match[1])
+            ? { kind: TAG.DOUBLE, value: number }
+            : { kind: TAG.INT, value: number };
     };
 
     const readValue = () => {
@@ -429,7 +482,8 @@ function fromSnbt(text) {
         const first = text[pos];
         if (first === "{") return readCompound();
         if (first === "[") return readList();
-        if (first === '"') return { kind: TAG.STRING, value: readQuotedString() };
+        if (first === '"')
+            return { kind: TAG.STRING, value: readQuotedString() };
         return readScalar();
     };
 
@@ -441,9 +495,22 @@ function fromSnbt(text) {
 
 const toPlainObject = (tag) =>
     tag.kind === TAG.COMPOUND
-        ? Object.fromEntries([...tag.value].map(([name, child]) => [name, toPlainObject(child)]))
+        ? Object.fromEntries(
+              [...tag.value].map(([name, child]) => [
+                  name,
+                  toPlainObject(child),
+              ]),
+          )
         : tag.kind === TAG.LIST
           ? tag.value.map(toPlainObject)
           : tag.value;
 
-if (typeof module !== "undefined") module.exports = { TAG, readNbt, writeNbt, toSnbt, fromSnbt, toPlainObject };
+if (typeof module !== "undefined")
+    module.exports = {
+        TAG,
+        readNbt,
+        writeNbt,
+        toSnbt,
+        fromSnbt,
+        toPlainObject,
+    };

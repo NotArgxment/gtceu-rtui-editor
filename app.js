@@ -3,7 +3,9 @@ const RECIPE_TYPES =
     "steam_boiler electric_furnace alloy_smelter arc_furnace assembler autoclave bender brewery macerator canner centrifuge chemical_bath chemical_reactor compressor cutter distillery electrolyzer electromagnetic_separator extractor extruder fermenter fluid_heater fluid_solidifier forge_hammer forming_press lathe mixer ore_washer packer polarizer laser_engraver sifter thermal_centrifuge wiremill circuit_assembler gas_collector air_scrubber research_station rock_breaker scanner combustion_generator gas_turbine steam_turbine plasma_generator large_boiler coke_oven primitive_blast_furnace electric_blast_furnace distillation_tower pyrolyse_oven cracker implosion_compressor vacuum_freezer assembly_line large_chemical_reactor fusion_reactor".split(
         " ",
     );
-byId("types").innerHTML = RECIPE_TYPES.map((t) => `<option value="gtceu:${t}">`).join("");
+byId("types").innerHTML = RECIPE_TYPES.map(
+    (t) => `<option value="gtceu:${t}">`,
+).join("");
 const state = {
     name: "",
     type: "",
@@ -15,7 +17,8 @@ const state = {
 };
 const createEmptyCompound = () => ({ kind: TAG.COMPOUND, value: new Map() });
 const recipePath = (t) => (t.includes(":") ? t.split(":")[1] : t),
-    recipeNamespace = (t) => (t.includes(":") ? t.split(":")[0] : "<namespace>");
+    recipeNamespace = (t) =>
+        t.includes(":") ? t.split(":")[0] : "<namespace>";
 
 async function loadRtuiBytes(u8, name) {
     if (u8[0] === 0x1f && u8[1] === 0x8b)
@@ -42,7 +45,9 @@ async function loadRtuiBytes(u8, name) {
     if (tag.kind !== TAG.COMPOUND || !tag.value.has("root"))
         throw new Error('Not an .rtui file (no "root" compound)');
     state.name = name;
-    state.type = tag.value.has("recipe_type") ? tag.value.get("recipe_type").value : "";
+    state.type = tag.value.has("recipe_type")
+        ? tag.value.get("recipe_type").value
+        : "";
     state.root = tag.value.get("root");
     state.resources = tag.value.get("resources") || createEmptyCompound();
     openEditor();
@@ -59,7 +64,8 @@ async function loadRtuiFile(f) {
     }
 }
 
-byId("file").onchange = (e) => e.target.files[0] && loadRtuiFile(e.target.files[0]);
+byId("file").onchange = (e) =>
+    e.target.files[0] && loadRtuiFile(e.target.files[0]);
 const dropZone = byId("drop");
 dropZone.ondragover = (e) => {
     e.preventDefault();
@@ -139,7 +145,8 @@ byId("ed").oninput = () => {
     textEditTimer = setTimeout(() => {
         try {
             const g = fromSnbt(byId("ed").value);
-            if (g.kind !== TAG.COMPOUND) throw new Error("Top level must be { }");
+            if (g.kind !== TAG.COMPOUND)
+                throw new Error("Top level must be { }");
             state[state.tab === "res" ? "resources" : "root"] = g;
             state.texts[state.tab] = byId("ed").value;
             byId("perr").textContent = "";
@@ -178,11 +185,14 @@ byId("fix").onclick = () => {
 byId("dl").onclick = () => {
     state.texts[state.tab] = byId("ed").value;
     const m = new Map();
-    if (state.type) m.set("recipe_type", { kind: TAG.STRING, value: state.type });
+    if (state.type)
+        m.set("recipe_type", { kind: TAG.STRING, value: state.type });
     m.set("root", state.root);
     m.set("resources", state.resources);
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([writeNbt("", { kind: TAG.COMPOUND, value: m })]));
+    a.href = URL.createObjectURL(
+        new Blob([writeNbt("", { kind: TAG.COMPOUND, value: m })]),
+    );
     a.download = (state.name || "ui") + ".rtui";
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 999);
@@ -206,7 +216,6 @@ function refreshEditor() {
             "w",
             "recipe_type is empty (GTM identifies the file by its name only).",
         );
-
     else if (state.name && state.name !== recipePath(state.type))
         addProblem(
             "e",
@@ -234,7 +243,10 @@ function refreshEditor() {
     for (const [k, s] of Object.entries(seen))
         for (let i = 0; i <= Math.max(...s); i++)
             if (!s.has(i)) {
-                addProblem("w", `${k}_${i} missing (ids should be sequential from 0)`);
+                addProblem(
+                    "w",
+                    `${k}_${i} missing (ids should be sequential from 0)`,
+                );
                 break;
             }
     const legacyTypeMatches = JSON.stringify(state.rootView).match(
@@ -263,7 +275,6 @@ function refreshEditor() {
             }
             w(c.data);
         });
-
     })(state.rootView);
     byId("probs").innerHTML = problems.length
         ? problems.join("")
@@ -288,7 +299,9 @@ const isImageReady = (i) => i.complete && i.naturalWidth > 0;
 let progressFraction = 0.5;
 function drawTexture(t, x, y, w, h, dep = 0) {
     if (t.type === "ui_resource") {
-        const r = (state.resourcesView || {})["ldlib.gui.editor.group.textures"]?.[t.key];
+        const r = (state.resourcesView || {})[
+            "ldlib.gui.editor.group.textures"
+        ]?.[t.key];
         return r && dep < 8
             ? drawTexture(r, x, y, w, h, dep + 1)
             : t.key === "empty"
@@ -357,7 +370,8 @@ function drawTexture(t, x, y, w, h, dep = 0) {
             );
             break;
         case "progress_texture": {
-            if (D.emptyBarArea) drawTexture(D.emptyBarArea, x, y, w, h, dep + 1);
+            if (D.emptyBarArea)
+                drawTexture(D.emptyBarArea, x, y, w, h, dep + 1);
             if (!D.filledBarArea) break;
             const f = progressFraction;
             previewCtx.save();
@@ -410,7 +424,9 @@ function drawWidget(d, ox, oy, showIds) {
         )
             drawTexture(v, x, y, w, h);
     }
-    (d.children || []).forEach((c) => c.data && drawWidget(c.data, x, y, showIds));
+    (d.children || []).forEach(
+        (c) => c.data && drawWidget(c.data, x, y, showIds),
+    );
     if (showIds && d.id) {
         previewCtx.save();
         previewCtx.font = "5px monospace";
@@ -435,7 +451,9 @@ function renderFrame() {
         previewCanvas.width = widgets * z;
         previewCanvas.height = H * z;
     }
-    progressFraction = byId("anim").checked ? (performance.now() % 2000) / 2000 : 0.5;
+    progressFraction = byId("anim").checked
+        ? (performance.now() % 2000) / 2000
+        : 0.5;
     previewCtx.setTransform(z, 0, 0, z, 0, 0);
     previewCtx.imageSmoothingEnabled = false;
     previewCtx.clearRect(0, 0, widgets, H);
