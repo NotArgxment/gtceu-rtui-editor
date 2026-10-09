@@ -426,25 +426,37 @@
     addWidget(structuredClone(p), host);
     commit();
   };
-  // Slot icons are no longer baked into new slots: this button assigns them on demand.
+
   const SLOT_ICON = "gtceu:textures/gui/overlay/pipe_overlay_1.png";
   const makeIconEntry = () =>
-    fromSnbt(`{t: 11b, p: {type: "resource_texture", data: {offsetX: 0.0f, imageWidth: 1.0f, yOffset: 0.0f, xOffset: 0.0f, offsetY: 0.0f, color: -1, rotation: 0.0f, scale: 1.0f, imageHeight: 1.0f, imageLocation: "${SLOT_ICON}"}}}`);
+    fromSnbt(
+      `{t: 11b, p: {type: "resource_texture", data: {offsetX: 0.0f, imageWidth: 1.0f, yOffset: 0.0f, xOffset: 0.0f, offsetY: 0.0f, color: -1, rotation: 0.0f, scale: 1.0f, imageHeight: 1.0f, imageLocation: "${SLOT_ICON}"}}}`,
+    );
   const isOverlayEntry = (e) =>
     /\/overlay\//.test(
-      getChild(getChild(getChild(e, "p"), "data"), "imageLocation")?.value || "",
+      getChild(getChild(getChild(e, "p"), "data"), "imageLocation")?.value ||
+        "",
     );
   function assignSlotIcons() {
     const slots = collectWidgets().filter(
-      (n) => n.wrap && /(item|fluid)_slot$/.test(getChild(n.wrap, "type")?.value || ""),
+      (n) =>
+        n.wrap &&
+        /(item|fluid)_slot$/.test(getChild(n.wrap, "type")?.value || ""),
     );
     const targets = slots.filter((n) => {
       const bg = getChild(n.data, "backgroundTexture");
-      const g = bg && getChild(bg, "type")?.value === "group_texture" ? getChild(getChild(bg, "data"), "textures") : null;
+      const g =
+        bg && getChild(bg, "type")?.value === "group_texture"
+          ? getChild(getChild(bg, "data"), "textures")
+          : null;
       return !(g && g.value.some(isOverlayEntry));
     });
     if (!targets.length) {
-      alert(slots.length ? "All slots already have an icon." : "No item/fluid slots found.");
+      alert(
+        slots.length
+          ? "All slots already have an icon."
+          : "No item/fluid slots found.",
+      );
       return;
     }
     pushHistory();
@@ -458,7 +470,9 @@
         ts.value.push(makeIconEntry());
         return;
       }
-      const group = fromSnbt(`{type: "group_texture", data: {yOffset: 0.0f, xOffset: 0.0f, textures: [], rotation: 0.0f, scale: 1.0f}}`);
+      const group = fromSnbt(
+        `{type: "group_texture", data: {yOffset: 0.0f, xOffset: 0.0f, textures: [], rotation: 0.0f, scale: 1.0f}}`,
+      );
       const ts = getChild(getChild(group, "data"), "textures");
       if (bg) {
         const entry = fromSnbt(`{t: 11b}`);
@@ -470,6 +484,7 @@
     });
     commit();
   }
+
   byId("icons").onclick = assignSlotIcons;
   byId("imp").onchange = async (e) => {
     for (const f of e.target.files)
