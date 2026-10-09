@@ -1,5 +1,6 @@
 (() => {
   const PAD = 8;
+  const SEL_COLOR = "#e21717", SEL_WIDTH = 3.5;
   const E = {
     sel: new Set(),
     drag: null,
