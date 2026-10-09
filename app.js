@@ -429,12 +429,18 @@ function drawWidget(d, ox, oy, showIds) {
     );
     if (showIds && d.id) {
         previewCtx.save();
-        previewCtx.font = "5px monospace";
+        let fs = 5;
+        previewCtx.font = fs + "px monospace";
+        const tw = previewCtx.measureText(d.id).width;
+        if (w > 2 && tw > w - 1) fs = Math.max(2, (fs * (w - 1)) / tw);
+        previewCtx.font = fs + "px monospace";
+        previewCtx.textBaseline = "top";
         previewCtx.fillStyle = "#fff";
         previewCtx.strokeStyle = "#000";
-        previewCtx.lineWidth = 1.2;
-        previewCtx.strokeText(d.id, x, y + 5);
-        previewCtx.fillText(d.id, x, y + 5);
+        previewCtx.lineWidth = fs * 0.25;
+        previewCtx.lineJoin = "round";
+        previewCtx.strokeText(d.id, x + 0.5, y + 0.5);
+        previewCtx.fillText(d.id, x + 0.5, y + 0.5);
         previewCtx.restore();
     }
 }
