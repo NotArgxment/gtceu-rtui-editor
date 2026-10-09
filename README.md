@@ -1,3 +1,4 @@
+# Made by Claude Sonnet 5.5
 RTUI Editor
 - Drop an existing .rtui, or create a new one: file name -> recipe type -> editor.
 - Left: readable text (SNBT: 1b = byte, 0.5f = float, 0.5d = double, 1 = int, 1L = long).
