@@ -140,7 +140,7 @@ byId("ed").oninput = () => {
         try {
             const g = fromSnbt(byId("ed").value);
             if (g.kind !== TAG.COMPOUND) throw new Error("Top level must be { }");
-            state[state.tab] = g;
+            state[state.tab === "res" ? "resources" : "root"] = g;
             state.texts[state.tab] = byId("ed").value;
             byId("perr").textContent = "";
             refreshEditor();

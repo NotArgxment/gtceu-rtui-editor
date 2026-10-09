@@ -651,7 +651,7 @@
       if (state.type)
         m.set("recipe_type", { kind: TAG.STRING, value: state.type });
       m.set("root", state.root);
-      m.set("resources", state.res);
+      m.set("resources", state.resources);
       const a = writeNbt("", { kind: TAG.COMPOUND, value: m }),
         b = readNbt(a).tag,
         c = writeNbt("", b);
