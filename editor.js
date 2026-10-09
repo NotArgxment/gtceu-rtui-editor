@@ -1,140 +1,161 @@
 (() => {
-  const PAD = 8;
-  const SEL_COLOR = "#ff3d3d",
-    SEL_WIDTH = 3;
-  const E = {
-    sel: new Set(),
+  const PREVIEW_PADDING = 8;
+  const SELECTION_COLOR = "#ff3d3d",
+    SELECTION_WIDTH = 3;
+  const editor = {
+    selection: new Set(),
     drag: null,
-    box: null,
-    proto: new Map(),
-    clip: [],
-    hist: [],
-    redo: [],
-    root: null,
-    pastes: 0,
-  };
-  const g = (c, k) => c.v.get(k);
-  const num = (c, k) => (c && g(c, k) ? Number(g(c, k).v) : 0);
-  const sub = (c, k) =>
-    g(c, k) || (c.v.set(k, { t: 10, v: new Map() }), g(c, k));
-  const setInt = (c, k, n) => {
-    const t = g(c, k);
-    if (t) t.v = Math.round(n);
-    else c.v.set(k, { t: 3, v: Math.round(n) });
+    marquee: null,
+    palette: new Map(),
+    clipboard: [],
+    undoStack: [],
+    redoStack: [],
+    knownRoot: null,
+    pasteCount: 0,
   };
 
-  function scan() {
+  const getChild = (c, k) => c.value.get(k);
+  const getNumber = (c, k) =>
+    c && getChild(c, k) ? Number(getChild(c, k).value) : 0;
+  const ensureCompound = (c, k) =>
+    getChild(c, k) ||
+    (c.value.set(k, { kind: TAG.COMPOUND, value: new Map() }), getChild(c, k));
+  const setIntChild = (c, k, n) => {
+    const t = getChild(c, k);
+    if (t) t.value = Math.round(n);
+    else c.value.set(k, { kind: TAG.INT, value: Math.round(n) });
+  };
+
+  function collectWidgets() {
     const out = [];
     const rec = (d, parent, wrap, ox, oy, depth) => {
-      const sp = g(d, "selfPosition"),
-        sz = g(d, "size");
-      const x = ox + num(sp, "x"),
-        y = oy + num(sp, "y");
+      const sp = getChild(d, "selfPosition"),
+        sz = getChild(d, "size");
+      const x = ox + getNumber(sp, "x"),
+        y = oy + getNumber(sp, "y");
       out.push({
-        d,
+        data: d,
         parent,
         wrap,
         x,
         y,
-        w: num(sz, "width"),
-        h: num(sz, "height"),
+        w: getNumber(sz, "width"),
+        h: getNumber(sz, "height"),
         depth,
       });
-      const ch = g(d, "children");
+      const ch = getChild(d, "children");
       if (ch)
-        ch.v.forEach(
-          (c) => g(c, "data") && rec(g(c, "data"), d, c, x, y, depth + 1),
+        ch.value.forEach(
+          (c) =>
+            getChild(c, "data") &&
+            rec(getChild(c, "data"), d, c, x, y, depth + 1),
         );
     };
-    const sp = g(S.root, "selfPosition");
-    rec(S.root, null, null, PAD - num(sp, "x"), PAD - num(sp, "y"), 0);
+    const sp = getChild(state.root, "selfPosition");
+    rec(
+      state.root,
+      null,
+      null,
+      PREVIEW_PADDING - getNumber(sp, "x"),
+      PREVIEW_PADDING - getNumber(sp, "y"),
+      0,
+    );
     return out;
   }
-  const nodes = () => scan().filter((n) => E.sel.has(n.d));
-  const tops = () => {
-    const all = scan(),
-      by = new Map(all.map((n) => [n.d, n]));
+
+  const selectedWidgets = () =>
+    collectWidgets().filter((n) => editor.selection.has(n.data));
+  const selectedRoots = () => {
+    const all = collectWidgets(),
+      by = new Map(all.map((n) => [n.data, n]));
     const covered = (n) => {
       for (let p = n.parent; p; p = by.get(p).parent)
-        if (E.sel.has(p)) return true;
+        if (editor.selection.has(p)) return true;
       return false;
     };
-    return all.filter((n) => E.sel.has(n.d) && !covered(n));
+    return all.filter((n) => editor.selection.has(n.data) && !covered(n));
   };
-  const hit = (px, py) =>
-    scan()
+
+  const findWidgetAt = (px, py) =>
+    collectWidgets()
       .reverse()
       .find((n) => px >= n.x && px < n.x + n.w && py >= n.y && py < n.y + n.h);
-  const hostFor = (l) => {
+  const containerFor = (l) => {
     const n = l[0];
     return !n
-      ? S.root
-      : l.length === 1 && g(n.d, "children")
-        ? n.d
-        : n.parent || S.root;
-  };
-  const refresh = () => {
-    renderTree();
-    renderInsp();
+      ? state.root
+      : l.length === 1 && getChild(n.data, "children")
+        ? n.data
+        : n.parent || state.root;
   };
 
-  const push = () => {
-    E.hist.push(structuredClone(S.root));
-    if (E.hist.length > 100) E.hist.shift();
-    E.redo = [];
+  const refreshPanels = () => {
+    renderTree();
+    renderInspector();
   };
-  const restore = (from, to) => {
+
+  const pushHistory = () => {
+    editor.undoStack.push(structuredClone(state.root));
+    if (editor.undoStack.length > 100) editor.undoStack.shift();
+    editor.redoStack = [];
+  };
+
+  const restoreSnapshot = (from, to) => {
     const s = from.pop();
     if (!s) return;
-    to.push(structuredClone(S.root));
-    S.root = s;
-    E.sel.clear();
+    to.push(structuredClone(state.root));
+    state.root = s;
+    editor.selection.clear();
     commit();
   };
-  const undo = () => restore(E.hist, E.redo);
-  const redo = () => restore(E.redo, E.hist);
+
+  const undoLast = () => restoreSnapshot(editor.undoStack, editor.redoStack);
+  const redoLast = () => restoreSnapshot(editor.redoStack, editor.undoStack);
 
   function commit(light) {
-    E.root = S.root;
+    editor.knownRoot = state.root;
     if (!light) {
-      S.txt.root = fmt(S.root);
-      if (S.tab === "root") $("ed").value = S.txt.root;
+      state.txt.root = toSnbt(state.root);
+      if (state.tab === "root") byId("ed").value = state.txt.root;
     }
-    update();
+    refreshEditor();
   }
-  const baseUpdate = update;
-  update = function () {
-    baseUpdate();
-    if (S.root !== E.root) {
-      E.hist = [];
-      E.redo = [];
-      E.root = S.root;
+
+  const baseRefresh = refreshEditor;
+  refreshEditor = function () {
+    baseRefresh();
+    if (state.root !== editor.knownRoot) {
+      editor.undoStack = [];
+      editor.redoStack = [];
+      editor.knownRoot = state.root;
     }
-    const live = new Set(scan().map((n) => n.d));
-    E.sel.forEach((d) => live.has(d) || E.sel.delete(d));
-    refresh();
+    const live = new Set(collectWidgets().map((n) => n.data));
+    editor.selection.forEach((d) => live.has(d) || editor.selection.delete(d));
+    refreshPanels();
   };
 
   function renderTree() {
-    const t = $("tree");
+    const t = byId("tree");
     t.innerHTML = "";
-    scan().forEach((n) => {
+    collectWidgets().forEach((n) => {
       const el = document.createElement("div");
-      const type = n.wrap ? g(n.wrap, "type")?.v : "root",
-        id = g(n.d, "id")?.v || "";
+      const type = n.wrap ? getChild(n.wrap, "type")?.value : "root",
+        id = getChild(n.data, "id")?.value || "";
       el.textContent = "· ".repeat(n.depth) + type + (id ? "  #" + id : "");
-      if (E.sel.has(n.d)) el.className = "sel";
+      if (editor.selection.has(n.data)) el.className = "sel";
       el.onclick = (e) => {
         if (e.shiftKey || e.ctrlKey || e.metaKey)
-          E.sel.has(n.d) ? E.sel.delete(n.d) : E.sel.add(n.d);
-        else E.sel = new Set([n.d]);
-        refresh();
+          editor.selection.has(n.data)
+            ? editor.selection.delete(n.data)
+            : editor.selection.add(n.data);
+        else editor.selection = new Set([n.data]);
+        refreshPanels();
       };
       t.appendChild(el);
     });
   }
 
-  function field(box, label, value, onset, kind = "text", list) {
+  function addField(box, label, value, onset, kind = "text", list) {
     const l = document.createElement("label"),
       i = document.createElement("input");
     l.textContent = label;
@@ -148,7 +169,7 @@
     }
     if (list) i.setAttribute("list", list);
     i.onchange = () => {
-      push();
+      pushHistory();
       onset(
         kind === "checkbox"
           ? i.checked
@@ -161,18 +182,20 @@
     l.appendChild(i);
     box.appendChild(l);
   }
-  function firstLoc(t) {
-    const dd = g(t, "data");
+
+  function findImageLocation(t) {
+    const dd = getChild(t, "data");
     if (!dd) return null;
-    if (g(dd, "imageLocation")) return g(dd, "imageLocation");
-    for (const c of dd.v.values())
-      if (c.t === 10) {
-        const r = firstLoc(c);
+    if (getChild(dd, "imageLocation")) return getChild(dd, "imageLocation");
+    for (const c of dd.value.values())
+      if (c.kind === TAG.COMPOUND) {
+        const r = findImageLocation(c);
         if (r) return r;
       }
     return null;
   }
-  function buttons(box, list) {
+
+  function addButtons(box, list) {
     const bar = document.createElement("div");
     bar.className = "bar";
     list.forEach(([t, f]) => {
@@ -183,10 +206,11 @@
     });
     box.appendChild(bar);
   }
-  function renderInsp() {
-    const box = $("insp");
+
+  function renderInspector() {
+    const box = byId("insp");
     box.innerHTML = "";
-    const l = nodes();
+    const l = selectedWidgets();
     if (!l.length) {
       box.textContent =
         "Click a widget in the preview or the tree. Shift/Ctrl+click to multi-select, drag on empty space to box-select.";
@@ -194,168 +218,192 @@
     }
     if (l.length > 1) {
       box.textContent = l.length + " widgets selected";
-      buttons(box, [
-        ["Duplicate", dup],
+      addButtons(box, [
+        ["Duplicate", duplicateSelection],
         ["Copy", copy],
         ["Cut", cut],
-        ["Delete", del],
+        ["Delete", deleteSelection],
       ]);
       return;
     }
-    const d = l[0].d;
-    field(
+    const d = l[0].data;
+    addField(
       box,
       "x",
-      num(g(d, "selfPosition"), "x"),
-      (v) => setInt(sub(d, "selfPosition"), "x", v),
+      getNumber(getChild(d, "selfPosition"), "x"),
+      (v) => setIntChild(ensureCompound(d, "selfPosition"), "x", v),
       "number",
     );
-    field(
+    addField(
       box,
       "y",
-      num(g(d, "selfPosition"), "y"),
-      (v) => setInt(sub(d, "selfPosition"), "y", v),
+      getNumber(getChild(d, "selfPosition"), "y"),
+      (v) => setIntChild(ensureCompound(d, "selfPosition"), "y", v),
       "number",
     );
-    field(
+    addField(
       box,
       "width",
-      num(g(d, "size"), "width"),
-      (v) => setInt(sub(d, "size"), "width", v),
+      getNumber(getChild(d, "size"), "width"),
+      (v) => setIntChild(ensureCompound(d, "size"), "width", v),
       "number",
     );
-    field(
+    addField(
       box,
       "height",
-      num(g(d, "size"), "height"),
-      (v) => setInt(sub(d, "size"), "height", v),
+      getNumber(getChild(d, "size"), "height"),
+      (v) => setIntChild(ensureCompound(d, "size"), "height", v),
       "number",
     );
-    for (const [k, tag] of d.v) {
+    for (const [k, tag] of d.value) {
       if (["selfPosition", "size", "children"].includes(k)) continue;
-      if (tag.t === 1)
-        field(box, k, tag.v, (v) => (tag.v = v ? 1 : 0), "checkbox");
-      else if ([2, 3, 4, 5, 6].includes(tag.t))
-        field(
+      if (tag.kind === TAG.BYTE)
+        addField(box, k, tag.value, (v) => (tag.value = v ? 1 : 0), "checkbox");
+      else if (
+        [TAG.SHORT, TAG.INT, TAG.LONG, TAG.FLOAT, TAG.DOUBLE].includes(tag.kind)
+      )
+        addField(
           box,
           k,
-          tag.v,
+          tag.value,
           (v) =>
-            (tag.v =
-              tag.t === 4
+            (tag.value =
+              tag.kind === TAG.LONG
                 ? BigInt(Math.round(v))
-                : [5, 6].includes(tag.t)
+                : [TAG.FLOAT, TAG.DOUBLE].includes(tag.kind)
                   ? v
                   : Math.round(v)),
           "number",
         );
-      else if (tag.t === 8) field(box, k, tag.v, (v) => (tag.v = v));
-      else if (tag.t === 10 && /texture/i.test(k)) {
-        const loc = firstLoc(tag);
-        if (loc) field(box, k, loc.v, (v) => (loc.v = v), "text", "texlist");
+      else if (tag.kind === TAG.STRING)
+        addField(box, k, tag.value, (v) => (tag.value = v));
+      else if (tag.kind === TAG.COMPOUND && /texture/i.test(k)) {
+        const loc = findImageLocation(tag);
+        if (loc)
+          addField(
+            box,
+            k,
+            loc.value,
+            (v) => (loc.value = v),
+            "text",
+            "texlist",
+          );
       }
     }
-    buttons(box, [
-      ["Duplicate", dup],
-      ["Delete", del],
-      ["↑", () => order(-1)],
-      ["↓", () => order(1)],
+    addButtons(box, [
+      ["Duplicate", duplicateSelection],
+      ["Delete", deleteSelection],
+      ["↑", () => reorderSelection(-1)],
+      ["↓", () => reorderSelection(1)],
     ]);
   }
 
-  function uniqId(w) {
-    const idt = g(g(w, "data"), "id");
-    if (!idt || !idt.v) return;
+  function ensureUniqueId(w) {
+    const idt = getChild(getChild(w, "data"), "id");
+    if (!idt || !idt.value) return;
     const used = new Set(
-      scan()
-        .map((n) => g(n.d, "id")?.v)
+      collectWidgets()
+        .map((n) => getChild(n.data, "id")?.value)
         .filter(Boolean),
     );
-    while (used.has(idt.v))
-      idt.v = /\d+$/.test(idt.v)
-        ? idt.v.replace(/\d+$/, (m) => +m + 1)
-        : idt.v + "_1";
+    while (used.has(idt.value))
+      idt.value = /\d+$/.test(idt.value)
+        ? idt.value.replace(/\d+$/, (m) => +m + 1)
+        : idt.value + "_1";
   }
-  function add(w, host) {
-    let ch = g(host, "children");
-    if (!ch) host.v.set("children", (ch = { t: 9, v: [] }));
-    uniqId(w);
-    ch.v.push(w);
-    E.sel.add(g(w, "data"));
+
+  function addWidget(w, host) {
+    let ch = getChild(host, "children");
+    if (!ch) host.value.set("children", (ch = { kind: TAG.LIST, value: [] }));
+    ensureUniqueId(w);
+    ch.value.push(w);
+    editor.selection.add(getChild(w, "data"));
   }
-  const shift = (w, o) => {
-    const sp = sub(g(w, "data"), "selfPosition");
-    setInt(sp, "x", num(sp, "x") + o);
-    setInt(sp, "y", num(sp, "y") + o);
+
+  const offsetWidget = (w, o) => {
+    const sp = ensureCompound(getChild(w, "data"), "selfPosition");
+    setIntChild(sp, "x", getNumber(sp, "x") + o);
+    setIntChild(sp, "y", getNumber(sp, "y") + o);
     return w;
   };
+  
   function copy() {
-    const l = tops().filter((n) => n.wrap);
+    const l = selectedRoots().filter((n) => n.wrap);
     if (!l.length) return false;
-    E.clip = l.map((n) => structuredClone(n.wrap));
-    E.pastes = 0;
+    editor.clipboard = l.map((n) => structuredClone(n.wrap));
+    editor.pasteCount = 0;
     return true;
   }
+
   function paste() {
-    if (!E.clip.length) return;
-    push();
-    const host = hostFor(tops());
-    E.pastes++;
-    E.sel.clear();
-    E.clip.forEach((w) => add(shift(structuredClone(w), 4 * E.pastes), host));
+    if (!editor.clipboard.length) return;
+    pushHistory();
+    const host = containerFor(selectedRoots());
+    editor.pasteCount++;
+    editor.selection.clear();
+    editor.clipboard.forEach((w) =>
+      addWidget(offsetWidget(structuredClone(w), 4 * editor.pasteCount), host),
+    );
     commit();
   }
-  function dup() {
-    const l = tops().filter((n) => n.wrap);
+
+  function duplicateSelection() {
+    const l = selectedRoots().filter((n) => n.wrap);
     if (!l.length) return;
-    push();
-    E.sel.clear();
-    l.forEach((n) => add(shift(structuredClone(n.wrap), 4), n.parent));
+    pushHistory();
+    editor.selection.clear();
+    l.forEach((n) =>
+      addWidget(offsetWidget(structuredClone(n.wrap), 4), n.parent),
+    );
     commit();
   }
-  function del() {
-    const l = tops().filter((n) => n.wrap);
+
+  function deleteSelection() {
+    const l = selectedRoots().filter((n) => n.wrap);
     if (!l.length) return;
-    push();
+    pushHistory();
     l.forEach((n) => {
-      const a = g(n.parent, "children").v;
+      const a = getChild(n.parent, "children").value;
       a.splice(a.indexOf(n.wrap), 1);
     });
-    E.sel.clear();
+    editor.selection.clear();
     commit();
   }
+
   const cut = () => {
-    if (copy()) del();
+    if (copy()) deleteSelection();
   };
-  function order(dir) {
-    const l = tops().filter((n) => n.wrap);
+  
+  function reorderSelection(dir) {
+    const l = selectedRoots().filter((n) => n.wrap);
     if (l.length !== 1) return;
     const n = l[0],
-      a = g(n.parent, "children").v,
+      a = getChild(n.parent, "children").value,
       i = a.indexOf(n.wrap),
       j = i + dir;
     if (j < 0 || j >= a.length) return;
-    push();
+    pushHistory();
     [a[i], a[j]] = [a[j], a[i]];
     commit();
   }
+
   function nudge(dx, dy) {
-    const l = tops();
+    const l = selectedRoots();
     if (!l.length) return;
-    push();
+    pushHistory();
     l.forEach((n) => {
-      const sp = sub(n.d, "selfPosition");
-      setInt(sp, "x", num(sp, "x") + dx);
-      setInt(sp, "y", num(sp, "y") + dy);
+      const sp = ensureCompound(n.data, "selfPosition");
+      setIntChild(sp, "x", getNumber(sp, "x") + dx);
+      setIntChild(sp, "y", getNumber(sp, "y") + dy);
     });
     commit();
   }
 
-  const fillProto = () =>
-    ($("proto").innerHTML = [...E.proto.keys()]
+  const fillPaletteOptions = () =>
+    (byId("proto").innerHTML = [...editor.palette.keys()]
       .map((t) => `<option>${t}</option>`)
       .join(""));
-  async function protoFrom(u8) {
+  async function loadPaletteFrom(u8) {
     if (u8[0] === 0x1f && u8[1] === 0x8b)
       u8 = new Uint8Array(
         await new Response(
@@ -363,96 +411,114 @@
         ).arrayBuffer(),
       );
     const rec = (d) =>
-      (g(d, "children")?.v || []).forEach((w) => {
-        const t = g(w, "type")?.v;
-        if (t && !E.proto.has(t)) {
+      (getChild(d, "children")?.value || []).forEach((w) => {
+        const t = getChild(w, "type")?.value;
+        if (t && !editor.palette.has(t)) {
           const c = structuredClone(w),
-            ch = g(g(c, "data"), "children");
-          if (ch) ch.v = [];
-          E.proto.set(t, c);
+            ch = getChild(getChild(c, "data"), "children");
+          if (ch) ch.value = [];
+          editor.palette.set(t, c);
         }
-        g(w, "data") && rec(g(w, "data"));
+        getChild(w, "data") && rec(getChild(w, "data"));
       });
-    rec(g(readNbt(u8).tag, "root"));
-    fillProto();
+    rec(getChild(readNbt(u8).tag, "root"));
+    fillPaletteOptions();
   }
-  $("add").onclick = () => {
-    const p = E.proto.get($("proto").value);
+
+  byId("add").onclick = () => {
+    const p = editor.palette.get(byId("proto").value);
     if (!p) return;
-    push();
-    const host = hostFor(tops());
-    E.sel.clear();
-    add(structuredClone(p), host);
+    pushHistory();
+    const host = containerFor(selectedRoots());
+    editor.selection.clear();
+    addWidget(structuredClone(p), host);
     commit();
   };
-  $("imp").onchange = async (e) => {
+
+  byId("imp").onchange = async (e) => {
     for (const f of e.target.files)
-      await protoFrom(new Uint8Array(await f.arrayBuffer()));
+      await loadPaletteFrom(new Uint8Array(await f.arrayBuffer()));
     e.target.value = "";
   };
-  protoFrom(Uint8Array.from(atob(TEMPLATE_B64), (c) => c.charCodeAt(0)));
-  $("texlist").innerHTML = TEXTURES.map((t) => `<option value="${t}">`).join(
+  
+  loadPaletteFrom(Uint8Array.from(atob(TEMPLATE_B64), (c) => c.charCodeAt(0)));
+  byId("texlist").innerHTML = TEXTURES.map((t) => `<option value="${t}">`).join(
     "",
   );
 
-  const ov = document.createElement("canvas");
-  ov.style.cssText =
+  const overlayCanvas = document.createElement("canvas");
+  overlayCanvas.style.cssText =
     "position:absolute;left:10px;top:10px;outline:none;cursor:crosshair";
-  cv.parentNode.style.position = "relative";
-  cv.parentNode.appendChild(ov);
-  const zoom = () => +$("zoom").value;
-  const ptr = (e) => {
-    const r = ov.getBoundingClientRect();
+  previewCanvas.parentNode.style.position = "relative";
+  previewCanvas.parentNode.appendChild(overlayCanvas);
+  const getZoom = () => +byId("zoom").value;
+  const pointerPosition = (e) => {
+    const r = overlayCanvas.getBoundingClientRect();
     return {
-      x: (e.clientX - r.left) / zoom(),
-      y: (e.clientY - r.top) / zoom(),
+      x: (e.clientX - r.left) / getZoom(),
+      y: (e.clientY - r.top) / getZoom(),
     };
   };
 
-  ov.onmousedown = (e) => {
-    const p = ptr(e),
+  overlayCanvas.onmousedown = (e) => {
+    const p = pointerPosition(e),
       mod = e.shiftKey || e.ctrlKey || e.metaKey,
-      tol = 4 / zoom();
-    const one = E.sel.size === 1 ? nodes()[0] : null;
+      tol = 4 / getZoom();
+    const one = editor.selection.size === 1 ? selectedWidgets()[0] : null;
     if (
       one &&
       Math.abs(p.x - (one.x + one.w)) <= tol &&
       Math.abs(p.y - (one.y + one.h)) <= tol
     ) {
-      push();
-      E.drag = { mode: "size", p, w: one.w, h: one.h, d: one.d, moved: false };
+      pushHistory();
+      editor.drag = {
+        mode: "size",
+        p,
+        w: one.w,
+        h: one.h,
+        data: one.data,
+        moved: false,
+      };
       return;
     }
-    const h = hit(p.x, p.y);
+    const h = findWidgetAt(p.x, p.y);
     if (!h || !h.wrap) {
-      E.drag = { mode: "box", p, base: new Set(mod ? E.sel : []) };
-      if (!mod) E.sel.clear();
-      refresh();
+      editor.drag = {
+        mode: "box",
+        p,
+        base: new Set(mod ? editor.selection : []),
+      };
+      if (!mod) editor.selection.clear();
+      refreshPanels();
       return;
     }
     let collapse = null;
-    if (mod) E.sel.has(h.d) ? E.sel.delete(h.d) : E.sel.add(h.d);
-    else if (!E.sel.has(h.d)) E.sel = new Set([h.d]);
-    else if (E.sel.size > 1) collapse = h.d;
-    refresh();
-    if (!E.sel.has(h.d)) return;
-    push();
-    E.drag = {
+    if (mod)
+      editor.selection.has(h.data)
+        ? editor.selection.delete(h.data)
+        : editor.selection.add(h.data);
+    else if (!editor.selection.has(h.data))
+      editor.selection = new Set([h.data]);
+    else if (editor.selection.size > 1) collapse = h.data;
+    refreshPanels();
+    if (!editor.selection.has(h.data)) return;
+    pushHistory();
+    editor.drag = {
       mode: "move",
       p,
       moved: false,
       collapse,
-      items: tops().map((n) => ({
-        d: n.d,
-        x: num(g(n.d, "selfPosition"), "x"),
-        y: num(g(n.d, "selfPosition"), "y"),
+      items: selectedRoots().map((n) => ({
+        data: n.data,
+        x: getNumber(getChild(n.data, "selfPosition"), "x"),
+        y: getNumber(getChild(n.data, "selfPosition"), "y"),
       })),
     };
   };
   window.addEventListener("mousemove", (e) => {
-    const D = E.drag;
+    const D = editor.drag;
     if (!D) return;
-    const p = ptr(e),
+    const p = pointerPosition(e),
       dx = Math.round(p.x - D.p.x),
       dy = Math.round(p.y - D.p.y);
     if (D.mode === "box") {
@@ -462,47 +528,55 @@
         x2: Math.max(p.x, D.p.x),
         y2: Math.max(p.y, D.p.y),
       };
-      E.box = r;
+      editor.marquee = r;
       const s = new Set(D.base);
-      scan().forEach(
+      collectWidgets().forEach(
         (n) =>
           n.wrap &&
-          !g(n.d, "children")?.v.length &&
+          !getChild(n.data, "children")?.value.length &&
           n.x < r.x2 &&
           n.x + n.w > r.x1 &&
           n.y < r.y2 &&
           n.y + n.h > r.y1 &&
-          s.add(n.d),
+          s.add(n.data),
       );
-      E.sel = s;
+      editor.selection = s;
       return;
     }
     if (dx || dy) D.moved = true;
     if (D.mode === "move")
       D.items.forEach((i) => {
-        setInt(sub(i.d, "selfPosition"), "x", i.x + dx);
-        setInt(sub(i.d, "selfPosition"), "y", i.y + dy);
+        setIntChild(ensureCompound(i.data, "selfPosition"), "x", i.x + dx);
+        setIntChild(ensureCompound(i.data, "selfPosition"), "y", i.y + dy);
       });
     else {
-      setInt(sub(D.d, "size"), "width", Math.max(1, D.w + dx));
-      setInt(sub(D.d, "size"), "height", Math.max(1, D.h + dy));
+      setIntChild(
+        ensureCompound(D.data, "size"),
+        "width",
+        Math.max(1, D.w + dx),
+      );
+      setIntChild(
+        ensureCompound(D.data, "size"),
+        "height",
+        Math.max(1, D.h + dy),
+      );
     }
     commit(true);
   });
   window.addEventListener("mouseup", () => {
-    const D = E.drag;
+    const D = editor.drag;
     if (!D) return;
-    E.drag = null;
-    E.box = null;
-    if (D.mode === "box") return refresh();
+    editor.drag = null;
+    editor.marquee = null;
+    if (D.mode === "box") return refreshPanels();
     if (D.moved) return commit();
-    E.hist.pop();
-    if (D.collapse) E.sel = new Set([D.collapse]);
-    refresh();
+    editor.undoStack.pop();
+    if (D.collapse) editor.selection = new Set([D.collapse]);
+    refreshPanels();
   });
 
   document.addEventListener("keydown", (e) => {
-    if ($("s2").hidden || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))
+    if (byId("s2").hidden || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))
       return;
     const k = e.key.toLowerCase(),
       m = e.ctrlKey || e.metaKey,
@@ -516,20 +590,20 @@
     if (m && k === "c") copy();
     else if (m && k === "x") cut();
     else if (m && k === "v") paste();
-    else if (m && k === "d") dup();
+    else if (m && k === "d") duplicateSelection();
     else if (m && k === "a") {
-      E.sel = new Set(
-        scan()
+      editor.selection = new Set(
+        collectWidgets()
           .filter((n) => n.wrap)
-          .map((n) => n.d),
+          .map((n) => n.data),
       );
-      refresh();
-    } else if (m && k === "z") e.shiftKey ? redo() : undo();
-    else if (m && k === "y") redo();
-    else if (k === "delete" || k === "backspace") del();
+      refreshPanels();
+    } else if (m && k === "z") e.shiftKey ? redoLast() : undoLast();
+    else if (m && k === "y") redoLast();
+    else if (k === "delete" || k === "backspace") deleteSelection();
     else if (k === "escape") {
-      E.sel.clear();
-      refresh();
+      editor.selection.clear();
+      refreshPanels();
     } else if (arrow) nudge(...arrow);
     else return;
     e.preventDefault();
@@ -537,23 +611,26 @@
 
   (function loop() {
     requestAnimationFrame(loop);
-    if ($("s2").hidden) return;
-    if (ov.width !== cv.width || ov.height !== cv.height) {
-      ov.width = cv.width;
-      ov.height = cv.height;
+    if (byId("s2").hidden) return;
+    if (
+      overlayCanvas.width !== previewCanvas.width ||
+      overlayCanvas.height !== previewCanvas.height
+    ) {
+      overlayCanvas.width = previewCanvas.width;
+      overlayCanvas.height = previewCanvas.height;
     }
-    const c = ov.getContext("2d"),
-      z = zoom(),
-      l = nodes();
-    c.clearRect(0, 0, ov.width, ov.height);
+    const c = overlayCanvas.getContext("2d"),
+      z = getZoom(),
+      l = selectedWidgets();
+    c.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     c.setLineDash([]);
-    c.strokeStyle = c.fillStyle = SEL_COLOR;
-    c.lineWidth = SEL_WIDTH;
+    c.strokeStyle = c.fillStyle = SELECTION_COLOR;
+    c.lineWidth = SELECTION_WIDTH;
     l.forEach((n) => c.strokeRect(n.x * z, n.y * z, n.w * z, n.h * z));
     if (l.length === 1)
       c.fillRect((l[0].x + l[0].w) * z - 4, (l[0].y + l[0].h) * z - 4, 8, 8);
-    if (E.box) {
-      const b = E.box;
+    if (editor.marquee) {
+      const b = editor.marquee;
       c.fillStyle = "rgba(68,170,255,.15)";
       c.fillRect(b.x1 * z, b.y1 * z, (b.x2 - b.x1) * z, (b.y2 - b.y1) * z);
       c.setLineDash([4, 3]);
@@ -566,29 +643,31 @@
     }
   })();
 
-  function verify() {
-    if ($("perr").textContent)
+  function verifyRoundTrip() {
+    if (byId("perr").textContent)
       return "The SNBT text has an error: your latest text edits are NOT in the file.";
     try {
       const m = new Map();
-      if (S.type) m.set("recipe_type", { t: 8, v: S.type });
-      m.set("root", S.root);
-      m.set("resources", S.res);
-      const a = writeNbt("", { t: 10, v: m }),
+      if (state.type)
+        m.set("recipe_type", { kind: TAG.STRING, value: state.type });
+      m.set("root", state.root);
+      m.set("resources", state.res);
+      const a = writeNbt("", { kind: TAG.COMPOUND, value: m }),
         b = readNbt(a).tag,
         c = writeNbt("", b);
       if (a.length !== c.length || a.some((x, i) => x !== c[i]))
         return "NBT round trip does not produce identical bytes.";
-      if (fmt(b) !== fmt({ t: 10, v: m }))
+      if (toSnbt(b) !== toSnbt({ kind: TAG.COMPOUND, value: m }))
         return "Re-read content differs from the editor content.";
     } catch (e) {
       return "Could not serialize: " + e.message;
     }
     return "";
   }
-  const baseDl = $("dl").onclick;
-  $("dl").onclick = () => {
-    const r = verify();
+
+  const baseDl = byId("dl").onclick;
+  byId("dl").onclick = () => {
+    const r = verifyRoundTrip();
     if (!r || confirm(r + "\n\nDownload anyway?")) baseDl();
   };
 
@@ -596,7 +675,7 @@
     document.querySelector(".split .left"),
     document.querySelector(".vis"),
   ];
-  const store = (k, v) => {
+  const storage = (k, v) => {
     try {
       v === undefined
         ? (v = localStorage.getItem(k))
@@ -604,7 +683,8 @@
     } catch (e) {}
     return v;
   };
-  const setW = (el, w) => {
+
+  const setPaneWidth = (el, w) => {
     el.style.flex = "none";
     el.style.width = Math.max(120, w) + "px";
   };
@@ -612,8 +692,8 @@
     [pl, "wLeft"],
     [pv, "wVis"],
   ].forEach(([el, key]) => {
-    const w = store(key);
-    if (w) setW(el, +w);
+    const w = storage(key);
+    if (w) setPaneWidth(el, +w);
     const gut = document.createElement("div");
     gut.className = "gut";
     el.after(gut);
@@ -621,10 +701,10 @@
       gut.setPointerCapture(e.pointerId);
       const x0 = e.clientX,
         w0 = el.getBoundingClientRect().width;
-      gut.onpointermove = (m) => setW(el, w0 + m.clientX - x0);
+      gut.onpointermove = (m) => setPaneWidth(el, w0 + m.clientX - x0);
       gut.onpointerup = () => {
         gut.onpointermove = null;
-        store(key, parseInt(el.style.width));
+        storage(key, parseInt(el.style.width));
       };
     };
   });

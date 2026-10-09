@@ -1,389 +1,449 @@
-function mutf8Enc(s) {
-    const o = [];
-    for (let i = 0; i < s.length; i++) {
-        const c = s.charCodeAt(i);
-        if (c >= 1 && c <= 0x7f) o.push(c);
-        else if (c <= 0x7ff) o.push(0xc0 | (c >> 6), 0x80 | (c & 63));
-        else o.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+const TAG = Object.freeze({
+    END: 0,
+    BYTE: 1,
+    SHORT: 2,
+    INT: 3,
+    LONG: 4,
+    FLOAT: 5,
+    DOUBLE: 6,
+    BYTE_ARRAY: 7,
+    STRING: 8,
+    LIST: 9,
+    COMPOUND: 10,
+    INT_ARRAY: 11,
+    LONG_ARRAY: 12,
+});
+
+const MAX_STRING_BYTES = 65535;
+const ARRAY_PREFIX_TO_KIND = { B: TAG.BYTE_ARRAY, I: TAG.INT_ARRAY, L: TAG.LONG_ARRAY };
+const BARE_KEY_PATTERN = /^[\w.+-]+$/;
+const NUMBER_PATTERN = /^(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([bslfdBSLFD]?)$/;
+const INDENT_UNIT = "  ";
+
+function encodeModifiedUtf8(text) {
+    const encoded = [];
+    for (let i = 0; i < text.length; i++) {
+        const unit = text.charCodeAt(i);
+        if (unit >= 0x01 && unit <= 0x7f) encoded.push(unit);
+        else if (unit <= 0x7ff) encoded.push(0xc0 | (unit >> 6), 0x80 | (unit & 0x3f));
+        else encoded.push(0xe0 | (unit >> 12), 0x80 | ((unit >> 6) & 0x3f), 0x80 | (unit & 0x3f));
     }
-    if (o.length > 65535) throw new Error("String too long for NBT (>65535 bytes)");
-    return Uint8Array.from(o);
+    if (encoded.length > MAX_STRING_BYTES) throw new Error("String too long for NBT (>65535 bytes)");
+    return Uint8Array.from(encoded);
 }
 
-function mutf8Dec(b) {
-    let s = "";
-    for (let i = 0; i < b.length; ) {
-        const c = b[i++];
-        if (c < 0x80) s += String.fromCharCode(c);
-        else if ((c & 0xe0) === 0xc0) s += String.fromCharCode(((c & 31) << 6) | (b[i++] & 63));
-        else s += String.fromCharCode(((c & 15) << 12) | ((b[i++] & 63) << 6) | (b[i++] & 63));
+function decodeModifiedUtf8(bytes) {
+    let text = "";
+    for (let i = 0; i < bytes.length; ) {
+        const first = bytes[i++];
+        if (first < 0x80) text += String.fromCharCode(first);
+        else if ((first & 0xe0) === 0xc0) text += String.fromCharCode(((first & 0x1f) << 6) | (bytes[i++] & 0x3f));
+        else text += String.fromCharCode(((first & 0x0f) << 12) | ((bytes[i++] & 0x3f) << 6) | (bytes[i++] & 0x3f));
     }
-    return s;
+    return text;
 }
 
-function readNbt(u8) {
-    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength),
-        td = new TextDecoder();
-    let p = 0;
-    const str = () => {
-        const n = dv.getUint16(p);
-        p += 2;
-        const s = mutf8Dec(u8.subarray(p, p + n));
-        p += n;
-        return s;
+function readNbt(bytes) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    let offset = 0;
+
+    const readString = () => {
+        const length = view.getUint16(offset);
+        offset += 2;
+        const text = decodeModifiedUtf8(bytes.subarray(offset, offset + length));
+        offset += length;
+        return text;
     };
 
-    const val = (t) => {
-        switch (t) {
-            case 1:
-                return dv.getInt8(p++);
-            case 2:
-                p += 2;
-                return dv.getInt16(p - 2);
-            case 3:
-                p += 4;
-                return dv.getInt32(p - 4);
-            case 4:
-                p += 8;
-                return dv.getBigInt64(p - 8);
-            case 5:
-                p += 4;
-                return dv.getFloat32(p - 4);
-            case 6:
-                p += 8;
-                return dv.getFloat64(p - 8);
-            case 7:
-            case 11:
-            case 12: {
-                const n = dv.getInt32(p);
-                p += 4;
-                const a = [];
-                for (let i = 0; i < n; i++) {
-                    if (t == 7) a.push(dv.getInt8(p++));
-                    else if (t == 11) {
-                        a.push(dv.getInt32(p));
-                        p += 4;
-                    } else {
-                        a.push(dv.getBigInt64(p));
-                        p += 8;
-                    }
-                }
-                return a;
+    const readNumberArray = (kind) => {
+        const count = view.getInt32(offset);
+        offset += 4;
+        const items = [];
+        for (let i = 0; i < count; i++) {
+            if (kind === TAG.BYTE_ARRAY) items.push(view.getInt8(offset++));
+            else if (kind === TAG.INT_ARRAY) {
+                items.push(view.getInt32(offset));
+                offset += 4;
+            } else {
+                items.push(view.getBigInt64(offset));
+                offset += 8;
             }
-            case 8:
-                return str();
-            case 9: {
-                const et = dv.getInt8(p++),
-                    n = dv.getInt32(p);
-                p += 4;
-                const a = [];
-                for (let i = 0; i < n; i++) a.push({ t: et, v: val(et) });
-                return a;
+        }
+        return items;
+    };
+
+    const readPayload = (kind) => {
+        switch (kind) {
+            case TAG.BYTE:
+                return view.getInt8(offset++);
+            case TAG.SHORT:
+                offset += 2;
+                return view.getInt16(offset - 2);
+            case TAG.INT:
+                offset += 4;
+                return view.getInt32(offset - 4);
+            case TAG.LONG:
+                offset += 8;
+                return view.getBigInt64(offset - 8);
+            case TAG.FLOAT:
+                offset += 4;
+                return view.getFloat32(offset - 4);
+            case TAG.DOUBLE:
+                offset += 8;
+                return view.getFloat64(offset - 8);
+            case TAG.BYTE_ARRAY:
+            case TAG.INT_ARRAY:
+            case TAG.LONG_ARRAY:
+                return readNumberArray(kind);
+            case TAG.STRING:
+                return readString();
+            case TAG.LIST: {
+                const elementKind = view.getInt8(offset++);
+                const count = view.getInt32(offset);
+                offset += 4;
+                const items = [];
+                for (let i = 0; i < count; i++) items.push({ kind: elementKind, value: readPayload(elementKind) });
+                return items;
             }
-            case 10: {
-                const m = new Map();
+            case TAG.COMPOUND: {
+                const children = new Map();
                 for (;;) {
-                    const ct = dv.getInt8(p++);
-                    if (!ct) return m;
-                    const k = str();
-                    m.set(k, { t: ct, v: val(ct) });
+                    const childKind = view.getInt8(offset++);
+                    if (childKind === TAG.END) return children;
+                    const name = readString();
+                    children.set(name, { kind: childKind, value: readPayload(childKind) });
                 }
             }
             default:
-                throw new Error("Bad NBT tag " + t);
+                throw new Error("Bad NBT tag " + kind);
         }
     };
-    const t = u8[p++];
-    const name = str();
-    return { name, tag: { t, v: val(t) } };
+
+    const kind = bytes[offset++];
+    const name = readString();
+    return { name, tag: { kind, value: readPayload(kind) } };
 }
 
 function writeNbt(name, tag) {
-    let buf = new Uint8Array(1024),
-        dv = new DataView(buf.buffer),
-        p = 0;
-    const te = new TextEncoder();
-    const need = (n) => {
-        if (p + n > buf.length) {
-            const nb = new Uint8Array(Math.max(buf.length * 2, p + n));
-            nb.set(buf);
-            buf = nb;
-            dv = new DataView(buf.buffer);
-        }
+    let buffer = new Uint8Array(1024);
+    let view = new DataView(buffer.buffer);
+    let offset = 0;
+
+    const ensureCapacity = (extraBytes) => {
+        if (offset + extraBytes <= buffer.length) return;
+        const grown = new Uint8Array(Math.max(buffer.length * 2, offset + extraBytes));
+        grown.set(buffer);
+        buffer = grown;
+        view = new DataView(buffer.buffer);
     };
-    const str = (s) => {
-        const b = mutf8Enc(s);
-        need(2 + b.length);
-        dv.setUint16(p, b.length);
-        p += 2;
-        buf.set(b, p);
-        p += b.length;
+
+    const writeString = (text) => {
+        const encoded = encodeModifiedUtf8(text);
+        ensureCapacity(2 + encoded.length);
+        view.setUint16(offset, encoded.length);
+        offset += 2;
+        buffer.set(encoded, offset);
+        offset += encoded.length;
     };
-    const val = (t, v) => {
-        switch (t) {
-            case 1:
-                need(1);
-                dv.setInt8(p++, v);
-                break;
-            case 2:
-                need(2);
-                dv.setInt16(p, v);
-                p += 2;
-                break;
-            case 3:
-                need(4);
-                dv.setInt32(p, v);
-                p += 4;
-                break;
-            case 4:
-                need(8);
-                dv.setBigInt64(p, BigInt(v));
-                p += 8;
-                break;
-            case 5:
-                need(4);
-                dv.setFloat32(p, v);
-                p += 4;
-                break;
-            case 6:
-                need(8);
-                dv.setFloat64(p, v);
-                p += 8;
-                break;
-            case 7:
-            case 11:
-            case 12:
-                need(4 + v.length * 8);
-                dv.setInt32(p, v.length);
-                p += 4;
-                for (const x of v) {
-                    if (t == 7) dv.setInt8(p++, x);
-                    else if (t == 11) {
-                        dv.setInt32(p, x);
-                        p += 4;
-                    } else {
-                        dv.setBigInt64(p, BigInt(x));
-                        p += 8;
-                    }
-                }
-                break;
-            case 8:
-                str(v);
-                break;
-            case 9: {
-                need(5);
-                const et = v.length ? v[0].t : 0;
-                dv.setInt8(p++, et);
-                dv.setInt32(p, v.length);
-                p += 4;
-                for (const e of v) val(et, e.v);
-                break;
+
+    const writeNumberArray = (kind, items) => {
+        ensureCapacity(4 + items.length * 8);
+        view.setInt32(offset, items.length);
+        offset += 4;
+        for (const item of items) {
+            if (kind === TAG.BYTE_ARRAY) view.setInt8(offset++, item);
+            else if (kind === TAG.INT_ARRAY) {
+                view.setInt32(offset, item);
+                offset += 4;
+            } else {
+                view.setBigInt64(offset, BigInt(item));
+                offset += 8;
             }
-            case 10:
-                for (const [k, c] of v) {
-                    need(1);
-                    dv.setInt8(p++, c.t);
-                    str(k);
-                    val(c.t, c.v);
-                }
-                need(1);
-                dv.setInt8(p++, 0);
-                break;
         }
     };
-    need(1);
-    buf[p++] = tag.t;
-    str(name);
-    val(tag.t, tag.v);
-    return buf.slice(0, p);
+
+    const writePayload = (kind, value) => {
+        switch (kind) {
+            case TAG.BYTE:
+                ensureCapacity(1);
+                view.setInt8(offset++, value);
+                break;
+
+            case TAG.SHORT:
+                ensureCapacity(2);
+                view.setInt16(offset, value);
+                offset += 2;
+                break;
+
+            case TAG.INT:
+                ensureCapacity(4);
+                view.setInt32(offset, value);
+                offset += 4;
+                break;
+
+            case TAG.LONG:
+                ensureCapacity(8);
+                view.setBigInt64(offset, BigInt(value));
+                offset += 8;
+                break;
+
+            case TAG.FLOAT:
+                ensureCapacity(4);
+                view.setFloat32(offset, value);
+                offset += 4;
+                break;
+
+            case TAG.DOUBLE:
+                ensureCapacity(8);
+                view.setFloat64(offset, value);
+                offset += 8;
+                break;
+
+            case TAG.BYTE_ARRAY:
+            case TAG.INT_ARRAY:
+            case TAG.LONG_ARRAY:
+                writeNumberArray(kind, value);
+                break;
+
+            case TAG.STRING:
+                writeString(value);
+                break;
+
+            case TAG.LIST: {
+                ensureCapacity(5);
+                const elementKind = value.length ? value[0].kind : TAG.END;
+                view.setInt8(offset++, elementKind);
+                view.setInt32(offset, value.length);
+                offset += 4;
+                for (const element of value) writePayload(elementKind, element.value);
+                break;
+
+            }
+            case TAG.COMPOUND:
+                for (const [childName, child] of value) {
+                    ensureCapacity(1);
+                    view.setInt8(offset++, child.kind);
+                    writeString(childName);
+                    writePayload(child.kind, child.value);
+                }
+                ensureCapacity(1);
+                view.setInt8(offset++, TAG.END);
+                break;
+
+        }
+    };
+
+    ensureCapacity(1);
+    buffer[offset++] = tag.kind;
+    writeString(name);
+    writePayload(tag.kind, tag.value);
+    return buffer.slice(0, offset);
 }
 
-const fd = (v) => {
-    const s = String(v);
-    return /[.eE]/.test(s) ? s : s + ".0";
+const formatDouble = (number) => {
+    const text = String(number);
+    return /[.eE]/.test(text) ? text : text + ".0";
 };
 
-const ff = (v) => {
-    for (let p = 1; p <= 9; p++) {
-        const s = parseFloat(v.toPrecision(p));
-        if (Math.fround(s) === v) {
-            v = s;
+const formatFloat = (number) => {
+    for (let precision = 1; precision <= 9; precision++) {
+        const candidate = parseFloat(number.toPrecision(precision));
+        if (Math.fround(candidate) === number) {
+            number = candidate;
             break;
+
         }
     }
-    return fd(v);
+    return formatDouble(number);
 };
 
-function fmt(g, ind = "") {
-    const { t, v } = g,
-        n = ind + "  ";
-    switch (t) {
-        case 1:
-            return v + "b";
-        case 2:
-            return v + "s";
-        case 3:
-            return "" + v;
-        case 4:
-            return v + "L";
-        case 5:
-            return ff(v) + "f";
-        case 6:
-            return fd(v) + "d";
-        case 8:
-            return JSON.stringify(v);
-        case 7:
-            return "[B; " + v.map((x) => x + "b").join(", ") + "]";
-        case 11:
-            return "[I; " + v.join(", ") + "]";
-        case 12:
-            return "[L; " + v.map((x) => x + "L").join(", ") + "]";
-        case 9:
-            return v.length
-                ? "[\n" +
-                      v.map((e) => n + fmt(e, n)).join(",\n") +
-                      "\n" +
-                      ind +
-                      "]"
-                : "[]";
-        case 10:
-            return v.size
-                ? "{\n" +
-                      [...v]
-                          .map(
-                              ([k, c]) =>
-                                  n +
-                                  (/^[\w.+-]+$/.test(k)
-                                      ? k
-                                      : JSON.stringify(k)) +
-                                  ": " +
-                                  fmt(c, n),
-                          )
-                          .join(",\n") +
-                      "\n" +
-                      ind +
-                      "}"
-                : "{}";
+function toSnbt(tag, indent = "") {
+    const { kind, value } = tag;
+    const childIndent = indent + INDENT_UNIT;
+    switch (kind) {
+        case TAG.BYTE:
+            return value + "b";
+
+        case TAG.SHORT:
+            return value + "s";
+
+        case TAG.INT:
+            return "" + value;
+
+        case TAG.LONG:
+            return value + "L";
+
+        case TAG.FLOAT:
+            return formatFloat(value) + "f";
+
+        case TAG.DOUBLE:
+            return formatDouble(value) + "d";
+
+        case TAG.STRING:
+            return JSON.stringify(value);
+
+        case TAG.BYTE_ARRAY:
+            return "[B; " + value.map((item) => item + "b").join(", ") + "]";
+
+        case TAG.INT_ARRAY:
+            return "[I; " + value.join(", ") + "]";
+
+        case TAG.LONG_ARRAY:
+            return "[L; " + value.map((item) => item + "L").join(", ") + "]";
+
+        case TAG.LIST:
+            if (!value.length) return "[]";
+            return "[\n" + value.map((element) => childIndent + toSnbt(element, childIndent)).join(",\n") + "\n" + indent + "]";
+        
+        case TAG.COMPOUND:
+            if (!value.size) return "{}";
+            return (
+                "{\n" +
+                [...value]
+                    .map(([name, child]) => {
+                        const key = BARE_KEY_PATTERN.test(name) ? name : JSON.stringify(name);
+                        return childIndent + key + ": " + toSnbt(child, childIndent);
+                    })
+                    .join(",\n") +
+                "\n" +
+                indent +
+                "}"
+            );
     }
 }
 
-function parse(s) {
-    let i = 0;
-    const err = (m) => {
-        throw new Error(m + " (line " + s.slice(0, i).split("\n").length + ")");
+function fromSnbt(text) {
+    let pos = 0;
+
+    const fail = (message) => {
+        throw new Error(message + " (line " + text.slice(0, pos).split("\n").length + ")");
     };
-    const ws = () => {
-        while (i < s.length && /\s/.test(s[i])) i++;
+    const skipWhitespace = () => {
+        while (pos < text.length && /\s/.test(text[pos])) pos++;
     };
-    const bare = () => {
-        const m = /^[^\s,:\[\]{}"]+/.exec(s.slice(i));
-        if (!m) err("Unexpected " + (s[i] || "end of text"));
-        i += m[0].length;
-        return m[0];
+    const skipComma = () => {
+        skipWhitespace();
+        if (text[pos] === ",") pos++;
     };
-    const strq = () => {
-        let j = i + 1;
-        while (j < s.length && s[j] !== '"') {
-            if (s[j] === "\\") j++;
-            j++;
+    const readBareToken = () => {
+        const match = /^[^\s,:\[\]{}"]+/.exec(text.slice(pos));
+        if (!match) fail("Unexpected " + (text[pos] || "end of text"));
+        pos += match[0].length;
+        return match[0];
+    };
+    const readQuotedString = () => {
+        let end = pos + 1;
+        while (end < text.length && text[end] !== '"') {
+            if (text[end] === "\\") end++;
+            end++;
         }
-        let r;
+        let result;
         try {
-            r = JSON.parse(s.slice(i, j + 1));
-        } catch (e) {
-            err("Bad string");
+            result = JSON.parse(text.slice(pos, end + 1));
+        } catch (error) {
+            fail("Bad string");
         }
-        i = j + 1;
-        return r;
+        pos = end + 1;
+        return result;
     };
-    const key = () => {
-        ws();
-        return s[i] === '"' ? strq() : bare();
+    const readKey = () => {
+        skipWhitespace();
+        return text[pos] === '"' ? readQuotedString() : readBareToken();
     };
-    const val = () => {
-        ws();
-        const c = s[i];
-        if (c === "{") {
-            i++;
-            const m = new Map();
-            for (;;) {
-                ws();
-                if (s[i] === "}") {
-                    i++;
-                    break;
-                }
-                const k = key();
-                ws();
-                if (s[i] !== ":") err("Expected ':' after " + k);
-                i++;
-                m.set(k, val());
-                ws();
-                if (s[i] === ",") i++;
+
+    const readCompound = () => {
+        pos++;
+        const children = new Map();
+        for (;;) {
+            skipWhitespace();
+            if (text[pos] === "}") {
+                pos++;
+                break;
             }
-            return { t: 10, v: m };
+            const key = readKey();
+            skipWhitespace();
+            if (text[pos] !== ":") fail("Expected ':' after " + key);
+            pos++;
+            children.set(key, readValue());
+            skipComma();
         }
-        if (c === "[") {
-            i++;
-            ws();
-            const m = /^([BIL]);/.exec(s.slice(i, i + 2));
-            if (m) {
-                i += 2;
-                const a = [];
-                for (;;) {
-                    ws();
-                    if (s[i] === "]") {
-                        i++;
-                        break;
-                    }
-                    const e = val();
-                    a.push(e.v);
-                    ws();
-                    if (s[i] === ",") i++;
-                }
-                return { t: { B: 7, I: 11, L: 12 }[m[1]], v: a };
-            }
-            const a = [];
-            for (;;) {
-                ws();
-                if (i >= s.length) err("Unclosed [");
-                if (s[i] === "]") {
-                    i++;
-                    break;
-                }
-                a.push(val());
-                ws();
-                if (s[i] === ",") i++;
-            }
-            if (a.some((e) => e.t !== a[0].t)) err("List mixes types");
-            return { t: 9, v: a };
-        }
-        if (c === '"') return { t: 8, v: strq() };
-        if (i >= s.length) err("Unexpected end");
-        const w = bare(),
-            m = /^(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([bslfdBSLFD]?)$/.exec(w);
-        if (w === "true") return { t: 1, v: 1 };
-        if (w === "false") return { t: 1, v: 0 };
-        if (!m) return { t: 8, v: w };
-        const f = m[2].toLowerCase(),
-            n = +m[1];
-        if (f === "b") return { t: 1, v: n };
-        if (f === "s") return { t: 2, v: n };
-        if (f === "l") return { t: 4, v: BigInt(m[1].split(/[.eE]/)[0]) };
-        if (f === "f") return { t: 5, v: Math.fround(n) };
-        if (f === "d") return { t: 6, v: n };
-        return /[.eE]/.test(m[1]) ? { t: 6, v: n } : { t: 3, v: n };
+        return { kind: TAG.COMPOUND, value: children };
     };
-    const r = val();
-    ws();
-    if (i < s.length) err("Trailing text");
-    return r;
+
+    const readTypedArray = (prefix) => {
+        pos += 2;
+        const items = [];
+        for (;;) {
+            skipWhitespace();
+            if (text[pos] === "]") {
+                pos++;
+                break;
+
+            }
+            items.push(readValue().value);
+            skipComma();
+        }
+        return { kind: ARRAY_PREFIX_TO_KIND[prefix], value: items };
+    };
+
+    const readList = () => {
+        pos++;
+        skipWhitespace();
+        const arrayMatch = /^([BIL]);/.exec(text.slice(pos, pos + 2));
+        if (arrayMatch) return readTypedArray(arrayMatch[1]);
+        const items = [];
+        for (;;) {
+            skipWhitespace();
+            if (pos >= text.length) fail("Unclosed [");
+            if (text[pos] === "]") {
+                pos++;
+                break;
+
+            }
+            items.push(readValue());
+            skipComma();
+        }
+        if (items.some((item) => item.kind !== items[0].kind)) fail("List mixes types");
+        return { kind: TAG.LIST, value: items };
+    };
+
+    const readScalar = () => {
+        if (pos >= text.length) fail("Unexpected end");
+        const token = readBareToken();
+        if (token === "true") return { kind: TAG.BYTE, value: 1 };
+        if (token === "false") return { kind: TAG.BYTE, value: 0 };
+        const match = NUMBER_PATTERN.exec(token);
+        if (!match) return { kind: TAG.STRING, value: token };
+        const suffix = match[2].toLowerCase();
+        const number = +match[1];
+        if (suffix === "b") return { kind: TAG.BYTE, value: number };
+        if (suffix === "s") return { kind: TAG.SHORT, value: number };
+        if (suffix === "l") return { kind: TAG.LONG, value: BigInt(match[1].split(/[.eE]/)[0]) };
+        if (suffix === "f") return { kind: TAG.FLOAT, value: Math.fround(number) };
+        if (suffix === "d") return { kind: TAG.DOUBLE, value: number };
+        return /[.eE]/.test(match[1]) ? { kind: TAG.DOUBLE, value: number } : { kind: TAG.INT, value: number };
+    };
+
+    const readValue = () => {
+        skipWhitespace();
+        const first = text[pos];
+        if (first === "{") return readCompound();
+        if (first === "[") return readList();
+        if (first === '"') return { kind: TAG.STRING, value: readQuotedString() };
+        return readScalar();
+    };
+
+    const result = readValue();
+    skipWhitespace();
+    if (pos < text.length) fail("Trailing text");
+    return result;
 }
 
-const toJS = (g) =>
-    g.t === 10
-        ? Object.fromEntries([...g.v].map(([k, c]) => [k, toJS(c)]))
-        : g.t === 9
-          ? g.v.map(toJS)
-          : g.v;
-if (typeof module !== "undefined")
-    module.exports = { readNbt, writeNbt, fmt, parse, toJS };
+const toPlainObject = (tag) =>
+    tag.kind === TAG.COMPOUND
+        ? Object.fromEntries([...tag.value].map(([name, child]) => [name, toPlainObject(child)]))
+        : tag.kind === TAG.LIST
+          ? tag.value.map(toPlainObject)
+          : tag.value;
+
+if (typeof module !== "undefined") module.exports = { TAG, readNbt, writeNbt, toSnbt, fromSnbt, toPlainObject };

@@ -1,10 +1,10 @@
-const $ = (id) => document.getElementById(id);
-const TYPES =
+const byId = (id) => document.getElementById(id);
+const RECIPE_TYPES =
     "steam_boiler electric_furnace alloy_smelter arc_furnace assembler autoclave bender brewery macerator canner centrifuge chemical_bath chemical_reactor compressor cutter distillery electrolyzer electromagnetic_separator extractor extruder fermenter fluid_heater fluid_solidifier forge_hammer forming_press lathe mixer ore_washer packer polarizer laser_engraver sifter thermal_centrifuge wiremill circuit_assembler gas_collector air_scrubber research_station rock_breaker scanner combustion_generator gas_turbine steam_turbine plasma_generator large_boiler coke_oven primitive_blast_furnace electric_blast_furnace distillation_tower pyrolyse_oven cracker implosion_compressor vacuum_freezer assembly_line large_chemical_reactor fusion_reactor".split(
         " ",
     );
-$("types").innerHTML = TYPES.map((t) => `<option value="gtceu:${t}">`).join("");
-const S = {
+byId("types").innerHTML = RECIPE_TYPES.map((t) => `<option value="gtceu:${t}">`).join("");
+const state = {
     name: "",
     type: "",
     root: null,
@@ -13,12 +13,11 @@ const S = {
     view: null,
     txt: {},
 };
-const emptyC = () => ({ t: 10, v: new Map() });
-const pathOf = (t) => (t.includes(":") ? t.split(":")[1] : t),
-    nsOf = (t) => (t.includes(":") ? t.split(":")[0] : "<namespace>");
+const createEmptyCompound = () => ({ kind: TAG.COMPOUND, value: new Map() });
+const recipePath = (t) => (t.includes(":") ? t.split(":")[1] : t),
+    recipeNamespace = (t) => (t.includes(":") ? t.split(":")[0] : "<namespace>");
 
-// ---------- loading ----------
-async function loadBytes(u8, name) {
+async function loadRtuiBytes(u8, name) {
     if (u8[0] === 0x1f && u8[1] === 0x8b)
         u8 = new Uint8Array(
             await new Response(
@@ -40,193 +39,214 @@ async function loadBytes(u8, name) {
                 : "Bad NBT: " + e.message,
         );
     }
-    if (tag.t !== 10 || !tag.v.has("root"))
+    if (tag.kind !== TAG.COMPOUND || !tag.value.has("root"))
         throw new Error('Not an .rtui file (no "root" compound)');
-    S.name = name;
-    S.type = tag.v.has("recipe_type") ? tag.v.get("recipe_type").v : "";
-    S.root = tag.v.get("root");
-    S.res = tag.v.get("resources") || emptyC();
+    state.name = name;
+    state.type = tag.value.has("recipe_type") ? tag.value.get("recipe_type").value : "";
+    state.root = tag.value.get("root");
+    state.resources = tag.value.get("resources") || createEmptyCompound();
     openEditor();
 }
-async function loadFile(f) {
+
+async function loadRtuiFile(f) {
     try {
-        await loadBytes(
+        await loadRtuiBytes(
             new Uint8Array(await f.arrayBuffer()),
             f.name.replace(/\.[^.]+$/, ""),
         );
     } catch (e) {
-        $("err1").textContent = e.message;
+        byId("err1").textContent = e.message;
     }
 }
-$("file").onchange = (e) => e.target.files[0] && loadFile(e.target.files[0]);
-const dz = $("drop");
-dz.ondragover = (e) => {
+
+byId("file").onchange = (e) => e.target.files[0] && loadRtuiFile(e.target.files[0]);
+const dropZone = byId("drop");
+dropZone.ondragover = (e) => {
     e.preventDefault();
-    dz.classList.add("over");
-};
-dz.ondragleave = () => dz.classList.remove("over");
-dz.ondrop = (e) => {
-    e.preventDefault();
-    dz.classList.remove("over");
-    e.dataTransfer.files[0] && loadFile(e.dataTransfer.files[0]);
-};
-$("n1").onclick = () => {
-    if (!$("nName").value.trim()) return;
-    $("step2").hidden = false;
-    $("nType").focus();
-};
-$("nName").onkeydown = (e) => {
-    if (e.key === "Enter") $("n1").click();
-};
-$("nType").oninput = () => {
-    const t = $("nType").value.trim();
-    $("nHint").textContent =
-        t && pathOf(t) !== $("nName").value.trim()
-            ? `GTM looks for ${pathOf(t)}.rtui — the file name should match the recipe type path.`
-            : "";
-};
-$("n2").onclick = async () => {
-    const t = $("nType").value.trim();
-    if (!t) return;
-    const b = Uint8Array.from(atob(TEMPLATE_B64), (c) => c.charCodeAt(0));
-    await loadBytes(b, $("nName").value.trim());
-    S.type = t;
-    $("type").value = t;
-    update();
-};
-$("back").onclick = () => {
-    $("s2").hidden = true;
-    $("s1").hidden = false;
+    dropZone.classList.add("over");
 };
 
-// ---------- editor ----------
+dropZone.ondragleave = () => dropZone.classList.remove("over");
+dropZone.ondrop = (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("over");
+    e.dataTransfer.files[0] && loadRtuiFile(e.dataTransfer.files[0]);
+};
+
+byId("n1").onclick = () => {
+    if (!byId("nName").value.trim()) return;
+    byId("step2").hidden = false;
+    byId("nType").focus();
+};
+
+byId("nName").onkeydown = (e) => {
+    if (e.key === "Enter") byId("n1").click();
+};
+
+byId("nType").oninput = () => {
+    const t = byId("nType").value.trim();
+    byId("nHint").textContent =
+        t && recipePath(t) !== byId("nName").value.trim()
+            ? `GTM looks for ${recipePath(t)}.rtui — the file name should match the recipe type path.`
+            : "";
+};
+
+byId("n2").onclick = async () => {
+    const t = byId("nType").value.trim();
+    if (!t) return;
+    const b = Uint8Array.from(atob(TEMPLATE_B64), (c) => c.charCodeAt(0));
+    await loadRtuiBytes(b, byId("nName").value.trim());
+    state.type = t;
+    byId("type").value = t;
+    refreshEditor();
+};
+
+byId("back").onclick = () => {
+    byId("s2").hidden = true;
+    byId("s1").hidden = false;
+};
+
 function openEditor() {
-    $("s1").hidden = true;
-    $("s2").hidden = false;
-    $("name").value = S.name;
-    $("type").value = S.type;
-    S.txt = { root: fmt(S.root), res: fmt(S.res) };
-    S.tab = "root";
-    $("ed").value = S.txt.root;
-    tabs();
-    update();
+    byId("s1").hidden = true;
+    byId("s2").hidden = false;
+    byId("name").value = state.name;
+    byId("type").value = state.type;
+    state.texts = { root: toSnbt(state.root), res: toSnbt(state.resources) };
+    state.tab = "root";
+    byId("ed").value = state.texts.root;
+    syncTabButtons();
+    refreshEditor();
 }
-function tabs() {
-    $("tRoot").classList.toggle("on", S.tab === "root");
-    $("tRes").classList.toggle("on", S.tab === "res");
+
+function syncTabButtons() {
+    byId("tRoot").classList.toggle("on", state.tab === "root");
+    byId("tRes").classList.toggle("on", state.tab === "res");
 }
-function setTab(t) {
-    S.txt[S.tab] = $("ed").value;
-    S.tab = t;
-    $("ed").value = S.txt[t];
-    $("perr").textContent = "";
-    tabs();
+
+function switchTab(t) {
+    state.texts[state.tab] = byId("ed").value;
+    state.tab = t;
+    byId("ed").value = state.texts[t];
+    byId("perr").textContent = "";
+    syncTabButtons();
 }
-$("tRoot").onclick = () => setTab("root");
-$("tRes").onclick = () => setTab("res");
-let deb;
-$("ed").oninput = () => {
-    clearTimeout(deb);
-    deb = setTimeout(() => {
+
+byId("tRoot").onclick = () => switchTab("root");
+byId("tRes").onclick = () => switchTab("res");
+let textEditTimer;
+byId("ed").oninput = () => {
+    clearTimeout(textEditTimer);
+    textEditTimer = setTimeout(() => {
         try {
-            const g = parse($("ed").value);
-            if (g.t !== 10) throw new Error("Top level must be { }");
-            S[S.tab] = g;
-            S.txt[S.tab] = $("ed").value;
-            $("perr").textContent = "";
-            update();
+            const g = fromSnbt(byId("ed").value);
+            if (g.kind !== TAG.COMPOUND) throw new Error("Top level must be { }");
+            state[state.tab] = g;
+            state.texts[state.tab] = byId("ed").value;
+            byId("perr").textContent = "";
+            refreshEditor();
         } catch (e) {
-            $("perr").textContent =
+            byId("perr").textContent =
                 "⚠ " + e.message + " — last valid version is kept";
         }
     }, 250);
 };
-$("ed").onkeydown = (e) => {
+
+byId("ed").onkeydown = (e) => {
     if (e.key === "Tab") {
         e.preventDefault();
         document.execCommand("insertText", false, "  ");
     }
 };
-$("name").oninput = () => {
-    S.name = $("name").value.trim();
-    update();
+
+byId("name").oninput = () => {
+    state.name = byId("name").value.trim();
+    refreshEditor();
 };
-$("type").oninput = () => {
-    S.type = $("type").value.trim();
-    update();
+
+byId("type").oninput = () => {
+    state.type = byId("type").value.trim();
+    refreshEditor();
 };
-$("fix").onclick = () => {
+
+byId("fix").onclick = () => {
     const re =
         /\btype: "(phantom_fluid_slot|phantom_item_slot|item_slot|fluid_slot|container)"/g;
-    $("ed").value = $("ed").value.replace(re, 'type: "gtm_$1"');
-    $("ed").oninput();
+    byId("ed").value = byId("ed").value.replace(re, 'type: "gtm_$1"');
+    byId("ed").oninput();
 };
-$("dl").onclick = () => {
-    S.txt[S.tab] = $("ed").value;
+
+byId("dl").onclick = () => {
+    state.texts[state.tab] = byId("ed").value;
     const m = new Map();
-    if (S.type) m.set("recipe_type", { t: 8, v: S.type });
-    m.set("root", S.root);
-    m.set("resources", S.res);
+    if (state.type) m.set("recipe_type", { kind: TAG.STRING, value: state.type });
+    m.set("root", state.root);
+    m.set("resources", state.resources);
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([writeNbt("", { t: 10, v: m })]));
-    a.download = (S.name || "ui") + ".rtui";
+    a.href = URL.createObjectURL(new Blob([writeNbt("", { kind: TAG.COMPOUND, value: m })]));
+    a.download = (state.name || "ui") + ".rtui";
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 999);
 };
 
-function update() {
-    S.view = toJS(S.root);
-    S.resView = toJS(S.res);
-    $("path").textContent = S.type
-        ? `Place at: assets/${nsOf(S.type)}/ui/recipe_type/${pathOf(S.type)}.rtui`
+function refreshEditor() {
+    state.rootView = toPlainObject(state.root);
+    state.resourcesView = toPlainObject(state.resources);
+    byId("path").textContent = state.type
+        ? `Place at: assets/${recipeNamespace(state.type)}/ui/recipe_type/${recipePath(state.type)}.rtui`
         : "Set a recipe type to see the target path";
-    const P = [],
-        W = [];
+    const problems = [],
+        widgets = [];
     (function w(d) {
-        W.push(d);
+        widgets.push(d);
         (d.children || []).forEach((c) => c.data && w(c.data));
-    })(S.view);
-    const add = (c, m) => P.push(`<li class="${c}">${m}</li>`);
-    if (!S.type)
-        add(
+    })(state.rootView);
+    const addProblem = (c, m) => problems.push(`<li class="${c}">${m}</li>`);
+    if (!state.type)
+        addProblem(
             "w",
             "recipe_type is empty (GTM identifies the file by its name only).",
         );
-    else if (S.name && S.name !== pathOf(S.type))
-        add(
+
+    else if (state.name && state.name !== recipePath(state.type))
+        addProblem(
             "e",
-            `File name "${S.name}" ≠ recipe type path "${pathOf(S.type)}" — GTM will not load it.`,
+            `File name "${state.name}" ≠ recipe type path "${recipePath(state.type)}" — GTM will not load it.`,
         );
+
     const ids = {};
-    W.forEach((d) => {
+    widgets.forEach((d) => {
         if (d.id) (ids[d.id] = ids[d.id] || []).push(d);
     });
+
     if (!ids.progress)
-        add("w", 'No widget with id "progress" — nothing will animate.');
+        addProblem("w", 'No widget with id "progress" — nothing will animate.');
     for (const [id, l] of Object.entries(ids))
         if (l.length > 1 && /^(item|fluid)_(in|out)_\d+$/.test(id))
-            add("e", `Duplicate id "${id}" ×${l.length}`);
+            addProblem("e", `Duplicate id "${id}" ×${l.length}`);
     const seen = {};
-    W.forEach((d) => {
+    widgets.forEach((d) => {
         const m = /^(item|fluid)_(in|out)_(\d+)$/.exec(d.id || "");
         if (m)
             (seen[m[1] + "_" + m[2]] =
                 seen[m[1] + "_" + m[2]] || new Set()).add(+m[3]);
     });
+
     for (const [k, s] of Object.entries(seen))
         for (let i = 0; i <= Math.max(...s); i++)
             if (!s.has(i)) {
-                add("w", `${k}_${i} missing (ids should be sequential from 0)`);
+                addProblem("w", `${k}_${i} missing (ids should be sequential from 0)`);
                 break;
             }
-    const ty = JSON.stringify(S.view).match(
+    const legacyTypeMatches = JSON.stringify(state.rootView).match(
         /"type":"(phantom_fluid_slot|phantom_item_slot|item_slot|fluid_slot|container)"/g,
     );
-    if (ty)
-        add(
+
+    if (legacyTypeMatches)
+        addProblem(
             "w",
-            `${ty.length} pre-7.0.0 widget type(s) — click "Fix legacy names" (needs gtm_ prefix).`,
+            `${legacyTypeMatches.length} pre-7.0.0 widget type(s) — click "Fix legacy names" (needs gtm_ prefix).`,
         );
+
     (function w(d) {
         (d.children || []).forEach((c) => {
             if (c.data && c.data.id) {
@@ -236,52 +256,54 @@ function update() {
                     c.type !== "gtm_" + m[1] + "_slot" &&
                     !/^(phantom_)?(item|fluid)_slot$/.test(c.type)
                 )
-                    add(
+                    addProblem(
                         "w",
                         `"${c.data.id}" is type "${c.type}" (expected gtm_${m[1]}_slot)`,
                     );
             }
             w(c.data);
         });
-    })(S.view);
-    $("probs").innerHTML = P.length
-        ? P.join("")
+
+    })(state.rootView);
+    byId("probs").innerHTML = problems.length
+        ? problems.join("")
         : '<li class="ok">✓ No problems found</li>';
 }
 
-// ---------- preview ----------
-const cv = $("cv"),
-    cx = cv.getContext("2d"),
-    IC = new Map();
-function img(l) {
-    if (!IC.has(l)) {
+const previewCanvas = byId("cv"),
+    previewCtx = previewCanvas.getContext("2d"),
+    imageCache = new Map();
+
+function loadTextureImage(l) {
+    if (!imageCache.has(l)) {
         const m = /^(\w+):textures\/(?:gui\/)?(.+)$/.exec(l),
             i = new Image();
         i.src = m ? `textures/${m[1]}/${m[2]}` : "missing.png";
-        IC.set(l, i);
+        imageCache.set(l, i);
     }
-    return IC.get(l);
+    return imageCache.get(l);
 }
-const ok = (i) => i.complete && i.naturalWidth > 0;
-let prog = 0.5;
-function tex(t, x, y, w, h, dep = 0) {
+
+const isImageReady = (i) => i.complete && i.naturalWidth > 0;
+let progressFraction = 0.5;
+function drawTexture(t, x, y, w, h, dep = 0) {
     if (t.type === "ui_resource") {
-        const r = (S.resView || {})["ldlib.gui.editor.group.textures"]?.[t.key];
+        const r = (state.resourcesView || {})["ldlib.gui.editor.group.textures"]?.[t.key];
         return r && dep < 8
-            ? tex(r, x, y, w, h, dep + 1)
+            ? drawTexture(r, x, y, w, h, dep + 1)
             : t.key === "empty"
               ? 0
-              : box(x, y, w, h, "#f55");
+              : drawMissingMarker(x, y, w, h, "#f55");
     }
     if (t.type === "empty") return;
     const D = t.data;
     switch (t.type) {
         case "resource_texture": {
-            const im = img(D.imageLocation);
-            if (!ok(im)) return box(x, y, w, h, "#f55");
+            const im = loadTextureImage(D.imageLocation);
+            if (!isImageReady(im)) return drawMissingMarker(x, y, w, h, "#f55");
             const iw = im.naturalWidth,
                 ih = im.naturalHeight;
-            cx.drawImage(
+            previewCtx.drawImage(
                 im,
                 (D.offsetX || 0) * iw,
                 (D.offsetY || 0) * ih,
@@ -295,8 +317,8 @@ function tex(t, x, y, w, h, dep = 0) {
             break;
         }
         case "border_texture": {
-            const im = img(D.imageLocation);
-            if (!ok(im)) return box(x, y, w, h, "#f55");
+            const im = loadTextureImage(D.imageLocation);
+            if (!isImageReady(im)) return drawMissingMarker(x, y, w, h, "#f55");
             const bs = D.boderSize || { width: 1, height: 1 },
                 iw = D.imageSize?.width || im.naturalWidth,
                 ih = D.imageSize?.height || im.naturalHeight,
@@ -315,7 +337,7 @@ function tex(t, x, y, w, h, dep = 0) {
                         dW = dx[c + 1] - dx[c],
                         dH = dy[r + 1] - dy[r];
                     if (sW > 0 && sH > 0 && dW > 0 && dH > 0)
-                        cx.drawImage(
+                        previewCtx.drawImage(
                             im,
                             X[c] * sw,
                             Y[r] * sh,
@@ -331,46 +353,48 @@ function tex(t, x, y, w, h, dep = 0) {
         }
         case "group_texture":
             (D.textures || []).forEach(
-                (e) => e.p && tex(e.p, x, y, w, h, dep + 1),
+                (e) => e.p && drawTexture(e.p, x, y, w, h, dep + 1),
             );
             break;
         case "progress_texture": {
-            if (D.emptyBarArea) tex(D.emptyBarArea, x, y, w, h, dep + 1);
+            if (D.emptyBarArea) drawTexture(D.emptyBarArea, x, y, w, h, dep + 1);
             if (!D.filledBarArea) break;
-            const f = prog;
-            cx.save();
-            cx.beginPath();
+            const f = progressFraction;
+            previewCtx.save();
+            previewCtx.beginPath();
             const r = {
                 LEFT_TO_RIGHT: [x, y, w * f, h],
                 RIGHT_TO_LEFT: [x + w * (1 - f), y, w * f, h],
                 UP_TO_DOWN: [x, y, w, h * f],
                 DOWN_TO_UP: [x, y + h * (1 - f), w, h * f],
             }[D.fillDirection] || [x, y, w, h];
-            cx.rect(...r);
-            cx.clip();
-            tex(D.filledBarArea, x, y, w, h, dep + 1);
-            cx.restore();
+            previewCtx.rect(...r);
+            previewCtx.clip();
+            drawTexture(D.filledBarArea, x, y, w, h, dep + 1);
+            previewCtx.restore();
             break;
         }
         case "color_rect_texture": {
             const c = D.color >>> 0;
-            cx.fillStyle = `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${(c >>> 24) / 255})`;
-            cx.fillRect(x, y, w, h);
+            previewCtx.fillStyle = `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${(c >>> 24) / 255})`;
+            previewCtx.fillRect(x, y, w, h);
             break;
         }
         default:
-            box(x, y, w, h, "#fa0", t.type);
+            drawMissingMarker(x, y, w, h, "#fa0", t.type);
     }
 }
-function box(x, y, w, h, c) {
-    cx.save();
-    cx.strokeStyle = c;
-    cx.lineWidth = 0.5;
-    cx.setLineDash([2, 2]);
-    cx.strokeRect(x + 0.25, y + 0.25, w - 0.5, h - 0.5);
-    cx.restore();
+
+function drawMissingMarker(x, y, w, h, c) {
+    previewCtx.save();
+    previewCtx.strokeStyle = c;
+    previewCtx.lineWidth = 0.5;
+    previewCtx.setLineDash([2, 2]);
+    previewCtx.strokeRect(x + 0.25, y + 0.25, w - 0.5, h - 0.5);
+    previewCtx.restore();
 }
-function draw(d, ox, oy, showIds) {
+
+function drawWidget(d, ox, oy, showIds) {
     const x = ox + (d.selfPosition?.x || 0),
         y = oy + (d.selfPosition?.y || 0),
         w = d.size?.width || 0,
@@ -384,47 +408,48 @@ function draw(d, ox, oy, showIds) {
             (v.data || v.type === "ui_resource" || v.type === "empty") &&
             /texture/i.test(k)
         )
-            tex(v, x, y, w, h);
+            drawTexture(v, x, y, w, h);
     }
-    (d.children || []).forEach((c) => c.data && draw(c.data, x, y, showIds));
+    (d.children || []).forEach((c) => c.data && drawWidget(c.data, x, y, showIds));
     if (showIds && d.id) {
-        cx.save();
-        cx.font = "5px monospace";
-        cx.fillStyle = "#fff";
-        cx.strokeStyle = "#000";
-        cx.lineWidth = 1.2;
-        cx.strokeText(d.id, x, y + 5);
-        cx.fillText(d.id, x, y + 5);
-        cx.restore();
+        previewCtx.save();
+        previewCtx.font = "5px monospace";
+        previewCtx.fillStyle = "#fff";
+        previewCtx.strokeStyle = "#000";
+        previewCtx.lineWidth = 1.2;
+        previewCtx.strokeText(d.id, x, y + 5);
+        previewCtx.fillText(d.id, x, y + 5);
+        previewCtx.restore();
     }
 }
-function frame() {
-    requestAnimationFrame(frame);
-    if ($("s2").hidden || !S.view) return;
-    const z = +$("zoom").value,
-        r = S.view,
+
+function renderFrame() {
+    requestAnimationFrame(renderFrame);
+    if (byId("s2").hidden || !state.rootView) return;
+    const z = +byId("zoom").value,
+        r = state.rootView,
         pad = 8,
-        W = (r.size?.width || 50) + pad * 2,
+        widgets = (r.size?.width || 50) + pad * 2,
         H = (r.size?.height || 50) + pad * 2;
-    if (cv.width !== W * z || cv.height !== H * z) {
-        cv.width = W * z;
-        cv.height = H * z;
+    if (previewCanvas.width !== widgets * z || previewCanvas.height !== H * z) {
+        previewCanvas.width = widgets * z;
+        previewCanvas.height = H * z;
     }
-    prog = $("anim").checked ? (performance.now() % 2000) / 2000 : 0.5;
-    cx.setTransform(z, 0, 0, z, 0, 0);
-    cx.imageSmoothingEnabled = false;
-    cx.clearRect(0, 0, W, H);
-    cx.save();
-    cx.strokeStyle = "rgba(0,0,0,.25)";
-    cx.lineWidth = 0.5;
-    cx.setLineDash([2, 2]);
-    cx.strokeRect(pad, pad, W - pad * 2, H - pad * 2);
-    cx.restore();
-    draw(
+    progressFraction = byId("anim").checked ? (performance.now() % 2000) / 2000 : 0.5;
+    previewCtx.setTransform(z, 0, 0, z, 0, 0);
+    previewCtx.imageSmoothingEnabled = false;
+    previewCtx.clearRect(0, 0, widgets, H);
+    previewCtx.save();
+    previewCtx.strokeStyle = "rgba(0,0,0,.25)";
+    previewCtx.lineWidth = 0.5;
+    previewCtx.setLineDash([2, 2]);
+    previewCtx.strokeRect(pad, pad, widgets - pad * 2, H - pad * 2);
+    previewCtx.restore();
+    drawWidget(
         r,
         pad - (r.selfPosition?.x || 0),
         pad - (r.selfPosition?.y || 0),
-        $("ids").checked,
+        byId("ids").checked,
     );
 }
-frame();
+renderFrame();
