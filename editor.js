@@ -1,6 +1,7 @@
 (() => {
   const PAD = 8;
-  const SEL_COLOR = "#e21717", SEL_WIDTH = 3.5;
+  const SEL_COLOR = "#ff3d3d",
+    SEL_WIDTH = 3;
   const E = {
     sel: new Set(),
     drag: null,
@@ -545,13 +546,12 @@
       z = zoom(),
       l = nodes();
     c.clearRect(0, 0, ov.width, ov.height);
-    c.strokeStyle = c.fillStyle = "#4af";
-    c.lineWidth = 1;
-    l.forEach((n) =>
-      c.strokeRect(n.x * z + 0.5, n.y * z + 0.5, n.w * z, n.h * z),
-    );
+    c.setLineDash([]);
+    c.strokeStyle = c.fillStyle = SEL_COLOR;
+    c.lineWidth = SEL_WIDTH;
+    l.forEach((n) => c.strokeRect(n.x * z, n.y * z, n.w * z, n.h * z));
     if (l.length === 1)
-      c.fillRect((l[0].x + l[0].w) * z - 3, (l[0].y + l[0].h) * z - 3, 6, 6);
+      c.fillRect((l[0].x + l[0].w) * z - 4, (l[0].y + l[0].h) * z - 4, 8, 8);
     if (E.box) {
       const b = E.box;
       c.fillStyle = "rgba(68,170,255,.15)";
