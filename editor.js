@@ -5,7 +5,11 @@
   const getChild = (c, k) => c.value.get(k);
   const getNumber = (c, k) => (c && getChild(c, k) ? Number(getChild(c, k).value) : 0);
   const ensureCompound = (c, k) => getChild(c, k) || (c.value.set(k, { kind: TAG.COMPOUND, value: new Map() }), getChild(c, k));
-  const setIntChild = (c, k, n) => { const t = getChild(c, k); if (t) t.value = Math.round(n); else c.value.set(k, { kind: TAG.INT, value: Math.round(n) }); };
+  const setIntChild = (c, k, n) => { 
+    const t = getChild(c, k); 
+    if (t) t.value = Math.round(n); 
+    else c.value.set(k, { 
+      kind: TAG.INT, value: Math.round(n) }); };
 
   function collectWidgets() {
     const out = [];
@@ -153,6 +157,7 @@
     l.forEach((n) => { const a = getChild(n.parent, "children").value; a.splice(a.indexOf(n.wrap), 1); });
     editor.selection.clear(); commit();
   }
+  const selectAllWidgets = () => { editor.selection = new Set(collectWidgets().filter((n) => n.wrap).map((n) => n.data)); refreshPanels(); };
   const cut = () => { if (copy()) deleteSelection(); };
   function reorderSelection(dir) {
     const l = selectedRoots().filter((n) => n.wrap); if (l.length !== 1) return;
@@ -191,13 +196,17 @@
   byId("texlist").innerHTML = TEXTURES.map((t) => `<option value="${t}">`).join("");
 
   const overlayCanvas = document.createElement("canvas");
-  overlayCanvas.style.cssText = "position:absolute;left:10px;top:10px;outline:none;cursor:crosshair";
+  overlayCanvas.style.cssText = "position:absolute;left:10px;top:10px;outline:none;cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none";
   previewCanvas.parentNode.style.position = "relative"; previewCanvas.parentNode.appendChild(overlayCanvas);
   const getZoom = () => +byId("zoom").value;
   const pointerPosition = (e) => { const r = overlayCanvas.getBoundingClientRect(); return { x: (e.clientX - r.left) / getZoom(), y: (e.clientY - r.top) / getZoom() }; };
 
-  overlayCanvas.onmousedown = (e) => {
-    const p = pointerPosition(e), mod = e.shiftKey || e.ctrlKey || e.metaKey, tol = 4 / getZoom();
+  const mediaMatches = (query) => typeof matchMedia === "function" && matchMedia(query).matches;
+  const isCoarsePointer = mediaMatches("(pointer: coarse)"), HANDLE_SIZE = isCoarsePointer ? 16 : 8;
+  overlayCanvas.onpointerdown = (e) => {
+    if (editor.panMode || e.isPrimary === false) return;
+    if (overlayCanvas.setPointerCapture) overlayCanvas.setPointerCapture(e.pointerId);
+    const p = pointerPosition(e), mod = e.shiftKey || e.ctrlKey || e.metaKey || editor.multiSelect, tol = (isCoarsePointer ? 16 : 4) / getZoom();
     const one = editor.selection.size === 1 ? selectedWidgets()[0] : null;
     if (one && Math.abs(p.x - (one.x + one.w)) <= tol && Math.abs(p.y - (one.y + one.h)) <= tol) {
       pushHistory(); editor.drag = { mode: "size", p, w: one.w, h: one.h, data: one.data, moved: false };
@@ -219,7 +228,7 @@
     pushHistory();
     editor.drag = { mode: "move", p, moved: false, collapse, items: selectedRoots().map((n) => ({ data: n.data, x: getNumber(getChild(n.data, "selfPosition"), "x"), y: getNumber(getChild(n.data, "selfPosition"), "y") })) };
   };
-  window.addEventListener("mousemove", (e) => {
+  window.addEventListener("pointermove", (e) => {
     const D = editor.drag; if (!D) return;
     const p = pointerPosition(e), dx = Math.round(p.x - D.p.x), dy = Math.round(p.y - D.p.y);
     if (D.mode === "box") {
@@ -235,7 +244,7 @@
     else { setIntChild(ensureCompound(D.data, "size"), "width", Math.max(1, D.w + dx)); setIntChild(ensureCompound(D.data, "size"), "height", Math.max(1, D.h + dy)); }
     commit(true);
   });
-  window.addEventListener("mouseup", () => {
+  const finishDrag = () => {
     const D = editor.drag; if (!D) return;
     editor.drag = null; editor.marquee = null;
     if (D.mode === "box") return refreshPanels();
@@ -243,7 +252,9 @@
     editor.undoStack.pop();
     if (D.collapse) editor.selection = new Set([D.collapse]);
     refreshPanels();
-  });
+  };
+  window.addEventListener("pointerup", finishDrag);
+  window.addEventListener("pointercancel", finishDrag);
 
   document.addEventListener("keydown", (e) => {
     if (byId("s2").hidden || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
@@ -253,7 +264,7 @@
     else if (m && k === "x") cut();
     else if (m && k === "v") paste();
     else if (m && k === "d") duplicateSelection();
-    else if (m && k === "a") { editor.selection = new Set(collectWidgets().filter((n) => n.wrap).map((n) => n.data)); refreshPanels(); }
+    else if (m && k === "a") selectAllWidgets();
     else if (m && k === "z") e.shiftKey ? redoLast() : undoLast();
     else if (m && k === "y") redoLast();
     else if (k === "delete" || k === "backspace") deleteSelection();
@@ -272,7 +283,7 @@
     c.setLineDash([]);
     c.strokeStyle = c.fillStyle = SEL_COLOR; c.lineWidth = SEL_WIDTH;
     l.forEach((n) => c.strokeRect(n.x * z, n.y * z, n.w * z, n.h * z));
-    if (l.length === 1) c.fillRect((l[0].x + l[0].w) * z - 4, (l[0].y + l[0].h) * z - 4, 8, 8);
+    if (l.length === 1) c.fillRect((l[0].x + l[0].w) * z - HANDLE_SIZE / 2, (l[0].y + l[0].h) * z - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
     if (editor.marquee) {
       const b = editor.marquee;
       c.fillStyle = "rgba(68,170,255,.15)";
@@ -313,4 +324,22 @@
   };
   addGutter(widgetsPane, true, "gut", "widgetsWidth", (start, dx) => start + dx, () => widgetsPane.getBoundingClientRect().width, (w) => setPaneWidth(widgetsPane, w));
   addGutter(sourcePane, false, "gut row", "sourceHeight", (start, dx, dy) => start - dy, () => sourcePane.getBoundingClientRect().height, (h) => setPaneHeight(sourcePane, h));
-})();
+
+  const actionBar = document.createElement("div");
+  actionBar.className = "bar actions";
+  const addAction = (label, handler) => {
+    const button = document.createElement("button");
+    button.textContent = label;
+    button.onclick = () => handler(button);
+    actionBar.appendChild(button);
+  };
+  addAction("↶ Undo", undoLast);
+  addAction("↷ Redo", redoLast);
+  addAction("Copy", copy);
+  addAction("Cut", cut);
+  addAction("Paste", paste);
+  addAction("Duplicate", duplicateSelection);
+  addAction("Delete", deleteSelection);
+  addAction("Select all", selectAllWidgets);
+  addAction("Multi-select", (button) => { editor.multiSelect = !editor.multiSelect; button.classList.toggle("on", editor.multiSelect); });
+  addAction(

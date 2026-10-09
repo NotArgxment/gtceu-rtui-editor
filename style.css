@@ -397,3 +397,91 @@ canvas {
     background: #4d5675;
     background-clip: content-box;
 }
+.actions button.on {
+    border-color: transparent;
+    background: linear-gradient(135deg, #4f6fe0, var(--accent));
+    color: #fff;
+}
+.actions {
+    gap: 6px;
+}
+@media (pointer: coarse) {
+    button,
+    select,
+    input:not([type="checkbox"]) {
+        min-height: 40px;
+    }
+    input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+    }
+    #tree div {
+        padding: 8px;
+    }
+    .cv,
+    #tree {
+        resize: none;
+    }
+}
+@media (max-width: 820px) {
+    header .muted {
+        display: none;
+    }
+    section {
+        padding: 10px;
+    }
+    #s1 {
+        margin: 8px auto;
+    }
+    #drop {
+        padding: 28px 12px;
+    }
+    #s2 > .bar {
+        padding: 8px;
+    }
+    #s2 > .bar label input {
+        max-width: 42vw;
+    }
+    .split {
+        height: auto;
+        min-height: 0;
+    }
+    .top {
+        flex-direction: column;
+        flex: none;
+    }
+    .right {
+        order: -1;
+        flex: none;
+        overflow: visible;
+    }
+    .vis {
+        width: auto !important;
+        flex: none !important;
+        overflow: visible;
+    }
+    .left {
+        height: 260px !important;
+    }
+    .gut {
+        display: none;
+    }
+    .actions {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 6px;
+    }
+    .actions button {
+        flex: none;
+    }
+    #tree {
+        height: 180px;
+    }
+    #insp input:not([type="checkbox"]) {
+        width: 55%;
+        font-size: 16px;
+    }
+    textarea {
+        font-size: 13px;
+    }
+}
