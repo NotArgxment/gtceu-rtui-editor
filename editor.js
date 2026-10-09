@@ -54,7 +54,6 @@
   const baseUpdate = update;
   update = function () {
     baseUpdate();
-    if (E.sel && !cur()) E.sel = null;
     renderTree();
     renderInsp();
   };
@@ -103,6 +102,7 @@
     l.appendChild(i);
     box.appendChild(l);
   }
+
   function firstLoc(t) {
     const dd = g(t, "data");
     if (!dd) return null;
@@ -114,13 +114,14 @@
       }
     return null;
   }
+
   function renderInsp() {
     const box = $("insp");
     box.innerHTML = "";
     const n = cur();
     if (!n) {
       box.textContent =
-          "Click on the preview or the tree to select a widget";
+        "Click on the preview or tree to select a widget";
       return;
     }
     const d = n.d;
@@ -152,6 +153,7 @@
       (v) => setInt(sub(d, "size"), "height", v),
       "number",
     );
+
     for (const [k, tag] of d.v) {
       if (["selfPosition", "size", "children"].includes(k)) continue;
       if (tag.t === 1)
@@ -176,11 +178,12 @@
         if (loc) field(box, k, loc.v, (v) => (loc.v = v), "text", "texlist");
       }
     }
+
     const bar = document.createElement("div");
     bar.className = "bar";
     [
-      ["Duplicar", dup],
-      ["Borrar", del],
+      ["Duplicate", dup],
+      ["Delete", del],
       ["↑", () => move(-1)],
       ["↓", () => move(1)],
     ].forEach(([t, f]) => {
@@ -224,7 +227,6 @@
       sp = sub(g(w, "data"), "selfPosition");
     setInt(sp, "x", num(sp, "x") + 4);
     setInt(sp, "y", num(sp, "y") + 4);
-    E.sel = n.parent;
     insert(w);
   }
   function del() {
@@ -263,7 +265,7 @@
         if (t && !E.proto.has(t)) {
           const c = structuredClone(w),
             ch = g(g(c, "data"), "children");
-          if (ch) ch.v = []; // los grupos entran vacíos
+          if (ch) ch.v = [];
           E.proto.set(t, c);
         }
         g(w, "data") && rec(g(w, "data"));
@@ -304,7 +306,6 @@
     const p = ptr(e),
       s = cur(),
       tol = 4 / zoom();
-
     if (
       s &&
       Math.abs(p.x - (s.x + s.w)) <= tol &&
@@ -384,4 +385,67 @@
     c.strokeRect(n.x * z + 0.5, n.y * z + 0.5, n.w * z, n.h * z);
     c.fillRect((n.x + n.w) * z - 3, (n.y + n.h) * z - 3, 6, 6);
   })();
+
+  function verify() {
+    if ($("perr").textContent)
+      return "The SNBT text has an error: last text changes are NOT in the file";
+    try {
+      const m = new Map();
+      if (S.type) m.set("recipe_type", { t: 8, v: S.type });
+      m.set("root", S.root);
+      m.set("resources", S.res);
+      const a = writeNbt("", { t: 10, v: m }),
+        b = readNbt(a).tag,
+        c = writeNbt("", b);
+      if (a.length !== c.length || a.some((x, i) => x !== c[i]))
+        return "La ida y vuelta NBT no da los mismos bytes.";
+      if (fmt(b) !== fmt({ t: 10, v: m }))
+        return "El contenido releído difiere del que hay en el editor.";
+    } catch (e) {
+      return "No se pudo serializar: " + e.message;
+    }
+    return "";
+  }
+  const baseDl = $("dl").onclick;
+  $("dl").onclick = () => {
+    const r = verify();
+    if (!r || confirm(r + "\n\nDownload anyways?")) baseDl();
+  };
+
+  const [pl, pv] = [
+    document.querySelector(".split .left"),
+    document.querySelector(".vis"),
+  ];
+  const store = (k, v) => {
+    try {
+      v === undefined
+        ? (v = localStorage.getItem(k))
+        : localStorage.setItem(k, v);
+    } catch (e) {}
+    return v;
+  };
+  const setW = (el, w) => {
+    el.style.flex = "none";
+    el.style.width = Math.max(120, w) + "px";
+  };
+  [
+    [pl, "wLeft"],
+    [pv, "wVis"],
+  ].forEach(([el, key]) => {
+    const w = store(key);
+    if (w) setW(el, +w);
+    const gut = document.createElement("div");
+    gut.className = "gut";
+    el.after(gut);
+    gut.onpointerdown = (e) => {
+      gut.setPointerCapture(e.pointerId);
+      const x0 = e.clientX,
+        w0 = el.getBoundingClientRect().width;
+      gut.onpointermove = (m) => setW(el, w0 + m.clientX - x0);
+      gut.onpointerup = () => {
+        gut.onpointermove = null;
+        store(key, parseInt(el.style.width));
+      };
+    };
+  });
 })();

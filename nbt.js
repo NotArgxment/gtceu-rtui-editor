@@ -1,4 +1,26 @@
-// Minimal NBT <-> text (SNBT-style, type-preserving) for .rtui files
+function mutf8Enc(s) {
+    const o = [];
+    for (let i = 0; i < s.length; i++) {
+        const c = s.charCodeAt(i);
+        if (c >= 1 && c <= 0x7f) o.push(c);
+        else if (c <= 0x7ff) o.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+        else o.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    }
+    if (o.length > 65535) throw new Error("String too long for NBT (>65535 bytes)");
+    return Uint8Array.from(o);
+}
+
+function mutf8Dec(b) {
+    let s = "";
+    for (let i = 0; i < b.length; ) {
+        const c = b[i++];
+        if (c < 0x80) s += String.fromCharCode(c);
+        else if ((c & 0xe0) === 0xc0) s += String.fromCharCode(((c & 31) << 6) | (b[i++] & 63));
+        else s += String.fromCharCode(((c & 15) << 12) | ((b[i++] & 63) << 6) | (b[i++] & 63));
+    }
+    return s;
+}
+
 function readNbt(u8) {
     const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength),
         td = new TextDecoder();
@@ -6,10 +28,11 @@ function readNbt(u8) {
     const str = () => {
         const n = dv.getUint16(p);
         p += 2;
-        const s = td.decode(u8.subarray(p, p + n));
+        const s = mutf8Dec(u8.subarray(p, p + n));
         p += n;
         return s;
     };
+
     const val = (t) => {
         switch (t) {
             case 1:
@@ -89,7 +112,7 @@ function writeNbt(name, tag) {
         }
     };
     const str = (s) => {
-        const b = te.encode(s);
+        const b = mutf8Enc(s);
         need(2 + b.length);
         dv.setUint16(p, b.length);
         p += 2;
@@ -179,6 +202,7 @@ const fd = (v) => {
     const s = String(v);
     return /[.eE]/.test(s) ? s : s + ".0";
 };
+
 const ff = (v) => {
     for (let p = 1; p <= 9; p++) {
         const s = parseFloat(v.toPrecision(p));
@@ -189,6 +213,7 @@ const ff = (v) => {
     }
     return fd(v);
 };
+
 function fmt(g, ind = "") {
     const { t, v } = g,
         n = ind + "  ";

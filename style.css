@@ -182,3 +182,22 @@ canvas {
 #insp input:not([type="checkbox"]) {
     width: 160px;
 }
+.gut {
+    width: 6px;
+    flex: none;
+    cursor: col-resize;
+    background: #2d3140;
+    border-radius: 3px;
+}
+.gut:hover {
+    background: #4a5fb0;
+}
+#tree {
+    height: 140px;
+    max-height: none;
+    resize: vertical;
+}
+.cv {
+    resize: both;
+    min-width: 200px;
+}
