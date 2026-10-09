@@ -1,6 +1,8 @@
 # Build with Claude Sonnet 5.5
 
 # RTUI Editor
+<img width="1331" height="1038" alt="image" src="https://github.com/user-attachments/assets/d77a52c5-8ee3-43a5-baf7-f9e340f751b1" />
+
 
 A browser-based visual editor for `.rtui` files: the recipe type UI layouts used by
 **GregTech Modern (GTCEu)** and **LDLib**. Open it by serving the folder or opening `index.html`;
