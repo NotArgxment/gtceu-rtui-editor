@@ -426,66 +426,128 @@
     addWidget(structuredClone(p), host);
     commit();
   };
-
-  const SLOT_ICON = "gtceu:textures/gui/overlay/pipe_overlay_1.png";
-  const makeIconEntry = () =>
-    fromSnbt(
-      `{t: 11b, p: {type: "resource_texture", data: {offsetX: 0.0f, imageWidth: 1.0f, yOffset: 0.0f, xOffset: 0.0f, offsetY: 0.0f, color: -1, rotation: 0.0f, scale: 1.0f, imageHeight: 1.0f, imageLocation: "${SLOT_ICON}"}}}`,
-    );
+  // Slot icons are not baked into new slots: the "Assign icons" menu applies a chosen overlay on demand.
+  const ICON_PREFIX = "gtceu:textures/gui/overlay/";
   const isOverlayEntry = (e) =>
     /\/overlay\//.test(
-      getChild(getChild(getChild(e, "p"), "data"), "imageLocation")?.value ||
-        "",
+      getChild(getChild(getChild(e, "p"), "data"), "imageLocation")?.value || "",
     );
-  function assignSlotIcons() {
-    const slots = collectWidgets().filter(
-      (n) =>
-        n.wrap &&
-        /(item|fluid)_slot$/.test(getChild(n.wrap, "type")?.value || ""),
-    );
-    const targets = slots.filter((n) => {
-      const bg = getChild(n.data, "backgroundTexture");
-      const g =
-        bg && getChild(bg, "type")?.value === "group_texture"
-          ? getChild(getChild(bg, "data"), "textures")
-          : null;
-      return !(g && g.value.some(isOverlayEntry));
+  const makeIconEntry = (loc) =>
+    fromSnbt(`{t: 11b, p: {type: "resource_texture", data: {offsetX: 0.0f, imageWidth: 1.0f, yOffset: 0.0f, xOffset: 0.0f, offsetY: 0.0f, color: -1, rotation: 0.0f, scale: 1.0f, imageHeight: 1.0f, imageLocation: "${loc}"}}}`);
+  const isSlotNode = (n) =>
+    n.wrap && /(item|fluid)_slot$/.test(getChild(n.wrap, "type")?.value || "");
+  // Slots the menu applies to: slots inside the current selection (a selected group counts), else every slot.
+  function iconTargets() {
+    const all = collectWidgets(),
+      by = new Map(all.map((n) => [n.data, n])),
+      slots = all.filter(isSlotNode);
+    const sel = slots.filter((n) => {
+      for (let d = n.data; d; d = by.get(d)?.parent)
+        if (editor.selection.has(d)) return true;
+      return false;
     });
-    if (!targets.length) {
-      alert(
-        slots.length
-          ? "All slots already have an icon."
-          : "No item/fluid slots found.",
-      );
-      return;
-    }
+    return { slots, targets: sel.length ? sel : slots, scoped: sel.length > 0 };
+  }
+  // loc === null removes the overlay; otherwise replaces any existing overlay (or adds one).
+  function assignSlotIcon(loc) {
+    const { targets } = iconTargets();
+    if (!targets.length) return;
     pushHistory();
     targets.forEach((n) => {
       const bg = getChild(n.data, "backgroundTexture");
       const type = bg && getChild(bg, "type")?.value;
+      let ts = null;
       if (type === "group_texture") {
         const d = getChild(bg, "data");
-        let ts = getChild(d, "textures");
+        ts = getChild(d, "textures");
         if (!ts) d.value.set("textures", (ts = { kind: TAG.LIST, value: [] }));
-        ts.value.push(makeIconEntry());
-        return;
+      } else {
+        if (!loc) return;
+        const group = fromSnbt(`{type: "group_texture", data: {yOffset: 0.0f, xOffset: 0.0f, textures: [], rotation: 0.0f, scale: 1.0f}}`);
+        ts = getChild(getChild(group, "data"), "textures");
+        if (bg) {
+          const entry = fromSnbt(`{t: 11b}`);
+          entry.value.set("p", bg);
+          ts.value.push(entry);
+        }
+        n.data.value.set("backgroundTexture", group);
       }
-      const group = fromSnbt(
-        `{type: "group_texture", data: {yOffset: 0.0f, xOffset: 0.0f, textures: [], rotation: 0.0f, scale: 1.0f}}`,
-      );
-      const ts = getChild(getChild(group, "data"), "textures");
-      if (bg) {
-        const entry = fromSnbt(`{t: 11b}`);
-        entry.value.set("p", bg);
-        ts.value.push(entry);
-      }
-      ts.value.push(makeIconEntry());
-      n.data.value.set("backgroundTexture", group);
+      ts.value = ts.value.filter((e) => !isOverlayEntry(e));
+      if (loc) ts.value.push(makeIconEntry(loc));
     });
     commit();
   }
 
-  byId("icons").onclick = assignSlotIcons;
+  const iconMenu = document.createElement("div");
+  iconMenu.id = "iconMenu";
+  iconMenu.hidden = true;
+  iconMenu.innerHTML =
+    '<div class="im-head"><input id="iconSearch" placeholder="Search icons…" autocomplete="off"><div id="iconScope" class="muted"></div></div><div id="iconGrid"></div>';
+  document.body.appendChild(iconMenu);
+  const iconGrid = iconMenu.querySelector("#iconGrid"),
+    iconSearch = iconMenu.querySelector("#iconSearch");
+  const iconNames = TEXTURES.filter((t) => t.startsWith(ICON_PREFIX));
+  const iconTile = (loc, label, src) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "im-tile";
+    b.title = label;
+    b.dataset.name = label.toLowerCase();
+    b.innerHTML = src
+      ? `<span class="im-thumb"><img src="${src}" alt="" loading="lazy"></span><span class="im-name"></span>`
+      : '<span class="im-thumb im-none">✕</span><span class="im-name"></span>';
+    b.querySelector(".im-name").textContent = label;
+    b.onclick = () => {
+      closeIconMenu();
+      assignSlotIcon(loc);
+    };
+    return b;
+  };
+  iconGrid.appendChild(iconTile(null, "None (remove)", null));
+  iconNames.forEach((loc) => {
+    const m = /^(\w+):textures\/(?:gui\/)?(.+)$/.exec(loc);
+    iconGrid.appendChild(
+      iconTile(loc, loc.slice(ICON_PREFIX.length).replace(/\.png$/, ""), `textures/${m[1]}/${m[2]}`),
+    );
+  });
+  const filterIcons = () => {
+    const q = iconSearch.value.trim().toLowerCase();
+    iconGrid.querySelectorAll(".im-tile").forEach((t) => {
+      t.hidden = !!q && !t.dataset.name.includes(q);
+    });
+  };
+  iconSearch.oninput = filterIcons;
+  function closeIconMenu() {
+    iconMenu.hidden = true;
+  }
+  function openIconMenu() {
+    const { slots, targets, scoped } = iconTargets();
+    iconMenu.querySelector("#iconScope").textContent = !slots.length
+      ? "No item/fluid slots found."
+      : scoped
+        ? `Applies to ${targets.length} selected slot(s)`
+        : `Applies to all ${targets.length} slot(s) — select slots or a group to limit it`;
+    iconMenu.hidden = false;
+    const r = byId("icons").getBoundingClientRect(),
+      w = iconMenu.offsetWidth;
+    iconMenu.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+    iconMenu.style.top = r.bottom + 6 + "px";
+    iconMenu.style.maxHeight = Math.max(200, innerHeight - r.bottom - 20) + "px";
+    iconSearch.value = "";
+    filterIcons();
+    iconSearch.focus();
+  }
+  byId("icons").onclick = (e) => {
+    e.stopPropagation();
+    iconMenu.hidden ? openIconMenu() : closeIconMenu();
+  };
+  document.addEventListener("pointerdown", (e) => {
+    if (!iconMenu.hidden && !iconMenu.contains(e.target) && e.target !== byId("icons"))
+      closeIconMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !iconMenu.hidden) closeIconMenu();
+  });
   byId("imp").onchange = async (e) => {
     for (const f of e.target.files)
       await loadPaletteFrom(new Uint8Array(await f.arrayBuffer()));
