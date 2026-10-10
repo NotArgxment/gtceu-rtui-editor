@@ -297,7 +297,28 @@ function loadTextureImage(l) {
 
 const isImageReady = (i) => i.complete && i.naturalWidth > 0;
 let progressFraction = 0.5;
-function drawTexture(t, x, y, w, h, dep = 0) {
+function drawTexture(t, x, y, w, h, dep = 0, sub = null) {
+    const D = t.data;
+    const rot = D?.rotation || 0,
+        sc = D?.scale ?? 1,
+        ox = D?.xOffset || 0,
+        oy = D?.yOffset || 0;
+    if (!D || (!rot && sc === 1 && !ox && !oy))
+        return drawTextureRaw(t, x, y, w, h, dep, sub);
+    const rx = sub ? x + sub.u * w : x,
+        ry = sub ? y + sub.v * h : y,
+        cx = rx + (sub ? sub.w * w : w) / 2,
+        cy = ry + (sub ? sub.h * h : h) / 2;
+    previewCtx.save();
+    previewCtx.translate(ox, oy);
+    previewCtx.translate(cx, cy);
+    previewCtx.scale(sc, sc);
+    previewCtx.rotate((rot * Math.PI) / 180);
+    previewCtx.translate(-cx, -cy);
+    drawTextureRaw(t, x, y, w, h, dep, sub);
+    previewCtx.restore();
+}
+function drawTextureRaw(t, x, y, w, h, dep = 0, sub = null) {
     if (t.type === "ui_resource") {
         const r = (state.resourcesView || {})[
             "ldlib.gui.editor.group.textures"
@@ -316,16 +337,21 @@ function drawTexture(t, x, y, w, h, dep = 0) {
             if (!isImageReady(im)) return drawMissingMarker(x, y, w, h, "#f55");
             const iw = im.naturalWidth,
                 ih = im.naturalHeight;
+            const u = sub?.u ?? 0,
+                v = sub?.v ?? 0,
+                sw = sub?.w ?? 1,
+                sh = sub?.h ?? 1;
+            if (sw <= 0 || sh <= 0) break;
             previewCtx.drawImage(
                 im,
-                (D.offsetX || 0) * iw,
-                (D.offsetY || 0) * ih,
-                (D.imageWidth ?? 1) * iw,
-                (D.imageHeight ?? 1) * ih,
-                x,
-                y,
-                w,
-                h,
+                ((D.offsetX || 0) + (D.imageWidth ?? 1) * u) * iw,
+                ((D.offsetY || 0) + (D.imageHeight ?? 1) * v) * ih,
+                (D.imageWidth ?? 1) * sw * iw,
+                (D.imageHeight ?? 1) * sh * ih,
+                x + u * w,
+                y + v * h,
+                w * sw,
+                h * sh,
             );
             break;
         }
@@ -374,17 +400,22 @@ function drawTexture(t, x, y, w, h, dep = 0) {
                 drawTexture(D.emptyBarArea, x, y, w, h, dep + 1);
             if (!D.filledBarArea) break;
             const f = progressFraction;
+            const sub = {
+                LEFT_TO_RIGHT: { u: 0, v: 0, w: f, h: 1 },
+                RIGHT_TO_LEFT: { u: 1 - f, v: 0, w: f, h: 1 },
+                UP_TO_DOWN: { u: 0, v: 0, w: 1, h: f },
+                DOWN_TO_UP: { u: 0, v: 1 - f, w: 1, h: f },
+            }[D.fillDirection] || { u: 0, v: 0, w: 1, h: 1 };
+            const fill = D.filledBarArea;
+            if (fill.type === "resource_texture") {
+                drawTexture(fill, x, y, w, h, dep + 1, sub);
+                break;
+            }
             previewCtx.save();
             previewCtx.beginPath();
-            const r = {
-                LEFT_TO_RIGHT: [x, y, w * f, h],
-                RIGHT_TO_LEFT: [x + w * (1 - f), y, w * f, h],
-                UP_TO_DOWN: [x, y, w, h * f],
-                DOWN_TO_UP: [x, y + h * (1 - f), w, h * f],
-            }[D.fillDirection] || [x, y, w, h];
-            previewCtx.rect(...r);
+            previewCtx.rect(x + sub.u * w, y + sub.v * h, w * sub.w, h * sub.h);
             previewCtx.clip();
-            drawTexture(D.filledBarArea, x, y, w, h, dep + 1);
+            drawTexture(fill, x, y, w, h, dep + 1);
             previewCtx.restore();
             break;
         }
