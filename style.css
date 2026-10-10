@@ -23,8 +23,17 @@ body {
     min-height: 100vh;
     color: var(--text);
     background:
-        radial-gradient(1200px 500px at 15% -10%, rgba(108, 140, 255, 0.12), transparent 60%),
-        radial-gradient(900px 400px at 100% 0, rgba(53, 214, 164, 0.08), transparent 55%), var(--bg);
+        radial-gradient(
+            1200px 500px at 15% -10%,
+            rgba(108, 140, 255, 0.12),
+            transparent 60%
+        ),
+        radial-gradient(
+            900px 400px at 100% 0,
+            rgba(53, 214, 164, 0.08),
+            transparent 55%
+        ),
+        var(--bg);
     font:
         14px/1.45 "Inter",
         system-ui,
@@ -203,7 +212,7 @@ code {
     flex-direction: column;
     gap: 8px;
     height: calc(100vh - 175px);
-    min-height: 420px;
+    min-height: 640px;
 }
 .left,
 .vis,
@@ -244,7 +253,7 @@ code {
     display: flex;
     flex-direction: column;
     flex: none;
-    height: 240px;
+    height: max(320px, 45vh);
 }
 .vis {
     width: 300px;

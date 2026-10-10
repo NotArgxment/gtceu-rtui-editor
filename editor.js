@@ -430,10 +430,13 @@
   const ICON_PREFIX = "gtceu:textures/gui/overlay/";
   const isOverlayEntry = (e) =>
     /\/overlay\//.test(
-      getChild(getChild(getChild(e, "p"), "data"), "imageLocation")?.value || "",
+      getChild(getChild(getChild(e, "p"), "data"), "imageLocation")?.value ||
+        "",
     );
   const makeIconEntry = (loc) =>
-    fromSnbt(`{t: 11b, p: {type: "resource_texture", data: {offsetX: 0.0f, imageWidth: 1.0f, yOffset: 0.0f, xOffset: 0.0f, offsetY: 0.0f, color: -1, rotation: 0.0f, scale: 1.0f, imageHeight: 1.0f, imageLocation: "${loc}"}}}`);
+    fromSnbt(
+      `{t: 11b, p: {type: "resource_texture", data: {offsetX: 0.0f, imageWidth: 1.0f, yOffset: 0.0f, xOffset: 0.0f, offsetY: 0.0f, color: -1, rotation: 0.0f, scale: 1.0f, imageHeight: 1.0f, imageLocation: "${loc}"}}}`,
+    );
   const isSlotNode = (n) =>
     n.wrap && /(item|fluid)_slot$/.test(getChild(n.wrap, "type")?.value || "");
   // Slots the menu applies to: slots inside the current selection (a selected group counts), else every slot.
@@ -463,7 +466,9 @@
         if (!ts) d.value.set("textures", (ts = { kind: TAG.LIST, value: [] }));
       } else {
         if (!loc) return;
-        const group = fromSnbt(`{type: "group_texture", data: {yOffset: 0.0f, xOffset: 0.0f, textures: [], rotation: 0.0f, scale: 1.0f}}`);
+        const group = fromSnbt(
+          `{type: "group_texture", data: {yOffset: 0.0f, xOffset: 0.0f, textures: [], rotation: 0.0f, scale: 1.0f}}`,
+        );
         ts = getChild(getChild(group, "data"), "textures");
         if (bg) {
           const entry = fromSnbt(`{t: 11b}`);
@@ -507,7 +512,11 @@
   iconNames.forEach((loc) => {
     const m = /^(\w+):textures\/(?:gui\/)?(.+)$/.exec(loc);
     iconGrid.appendChild(
-      iconTile(loc, loc.slice(ICON_PREFIX.length).replace(/\.png$/, ""), `textures/${m[1]}/${m[2]}`),
+      iconTile(
+        loc,
+        loc.slice(ICON_PREFIX.length).replace(/\.png$/, ""),
+        `textures/${m[1]}/${m[2]}`,
+      ),
     );
   });
   const filterIcons = () => {
@@ -530,9 +539,11 @@
     iconMenu.hidden = false;
     const r = byId("icons").getBoundingClientRect(),
       w = iconMenu.offsetWidth;
-    iconMenu.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+    iconMenu.style.left =
+      Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
     iconMenu.style.top = r.bottom + 6 + "px";
-    iconMenu.style.maxHeight = Math.max(200, innerHeight - r.bottom - 20) + "px";
+    iconMenu.style.maxHeight =
+      Math.max(200, innerHeight - r.bottom - 20) + "px";
     iconSearch.value = "";
     filterIcons();
     iconSearch.focus();
@@ -542,7 +553,11 @@
     iconMenu.hidden ? openIconMenu() : closeIconMenu();
   };
   document.addEventListener("pointerdown", (e) => {
-    if (!iconMenu.hidden && !iconMenu.contains(e.target) && e.target !== byId("icons"))
+    if (
+      !iconMenu.hidden &&
+      !iconMenu.contains(e.target) &&
+      e.target !== byId("icons")
+    )
       closeIconMenu();
   });
   document.addEventListener("keydown", (e) => {
@@ -847,8 +862,7 @@
   };
   const setPaneHeight = (el, h) => {
     el.style.flex = "none";
-    el.style.height =
-      Math.min(Math.max(80, h), el.parentElement.clientHeight - 160) + "px";
+    el.style.height = Math.min(Math.max(80, h), el.parentElement.clientHeight - 110) + "px";
   };
   const addGutter = (
     reference,
@@ -890,7 +904,7 @@
     sourcePane,
     false,
     "gut row",
-    "sourceHeight",
+    "sourceHeight2",
     (start, dx, dy) => start - dy,
     () => sourcePane.getBoundingClientRect().height,
     (h) => setPaneHeight(sourcePane, h),
