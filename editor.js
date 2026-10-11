@@ -426,7 +426,7 @@
     addWidget(structuredClone(p), host);
     commit();
   };
-  // Slot icons are not baked into new slots: the "Assign icons" menu applies a chosen overlay on demand.
+
   const ICON_PREFIX = "gtceu:textures/gui/overlay/";
   const isOverlayEntry = (e) =>
     /\/overlay\//.test(
@@ -439,7 +439,7 @@
     );
   const isSlotNode = (n) =>
     n.wrap && /(item|fluid)_slot$/.test(getChild(n.wrap, "type")?.value || "");
-  // Slots the menu applies to: slots inside the current selection (a selected group counts), else every slot.
+
   function iconTargets() {
     const all = collectWidgets(),
       by = new Map(all.map((n) => [n.data, n])),
@@ -451,7 +451,7 @@
     });
     return { slots, targets: sel.length ? sel : slots, scoped: sel.length > 0 };
   }
-  // loc === null removes the overlay; otherwise replaces any existing overlay (or adds one).
+
   function assignSlotIcon(loc) {
     const { targets } = iconTargets();
     if (!targets.length) return;
@@ -563,7 +563,7 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !iconMenu.hidden) closeIconMenu();
   });
-  // ---- Shapes: generate a group of item/fluid slots laid out as a circle, polygon, line, grid or frame ----
+  
   const SLOT = 18;
   const shapeCfg = {
     shape: "circle",
@@ -583,7 +583,7 @@
     gap: 0,
     grow: true,
   };
-  // Angles are in degrees, 0 = top, clockwise. Returns slot centres (floats, origin = shape centre).
+  
   function shapeCenters(c) {
     const n = Math.max(1, Math.round(c.count)),
       step = SLOT + c.gap,
@@ -633,7 +633,7 @@
           )
             pts.push([k * step, r * step]);
       if (c.shape === "frame") {
-        // clockwise from top-left
+      
         const at = (k, r) =>
           pts.find((p) => p[0] === k * step && p[1] === r * step);
         const o = [];
@@ -646,7 +646,7 @@
     }
     return pts;
   }
-  // Integer top-left slot positions (origin = group top-left, 3px padding) and group size.
+  
   function shapeLayout(c) {
     const ctr = shapeCenters(c);
     if (!ctr.length) return { slots: [], w: 0, h: 0, overlaps: 0 };
@@ -671,7 +671,7 @@
           overlaps++;
     return { slots, w, h, overlaps };
   }
-  // Smallest radius (keeping the X:Y ratio for circles) with no overlapping slots.
+ 
   function autoRadius(c) {
     const t = { ...c };
     if (c.shape === "circle") {
@@ -745,7 +745,7 @@
       ch.value.push(s);
     });
     if (c.grow) {
-      // make the container big enough for the new group
+      
       if (hw < gx + L.w) setIntChild(hsz, "width", gx + L.w);
       if (hh < gy + L.h) setIntChild(hsz, "height", gy + L.h);
     }
@@ -908,6 +908,77 @@
   });
   const baseIconsClick = byId("icons").onclick;
   byId("icons").onclick = (e) => (closeShapeMenu(), baseIconsClick(e));
+
+  const ITEM_ONLY = ["canPutItems", "canTakeItems"],
+    FLUID_ONLY = [
+      "showAmount",
+      "allowClickFilled",
+      "allowClickDrained",
+      "fillDirection",
+    ];
+  function swapSlotTypes() {
+    const { targets, scoped } = iconTargets();
+    if (!targets.length) {
+      alert("No item/fluid slots found.");
+      return;
+    }
+    pushHistory();
+    const toSet = new Set(targets.map((n) => n.data)),
+      used = new Set(
+        collectWidgets()
+          .filter((n) => !toSet.has(n.data))
+          .map((n) => getChild(n.data, "id")?.value)
+          .filter(Boolean),
+      );
+
+    targets.forEach((n) => {
+      const toFluid = getChild(n.wrap, "type").value.endsWith("item_slot"),
+        prefixOld = getChild(n.wrap, "type").value.replace(
+          /(item|fluid)_slot$/,
+          "",
+        ),
+        newType = prefixOld + (toFluid ? "fluid_slot" : "item_slot"),
+        proto =
+          editor.palette.get(newType) ||
+          editor.palette.get(toFluid ? "gtm_fluid_slot" : "gtm_item_slot"),
+        d = n.data;
+      getChild(n.wrap, "type").value = newType;
+      (toFluid ? ITEM_ONLY : FLUID_ONLY).forEach((k) => d.value.delete(k));
+      if (proto)
+        (toFluid ? FLUID_ONLY : ITEM_ONLY).forEach((k) => {
+          const pv = getChild(getChild(proto, "data"), k);
+          if (pv && !d.value.has(k)) d.value.set(k, structuredClone(pv));
+        });
+
+      const bg = getChild(d, "backgroundTexture");
+      if (bg && getChild(bg, "type")?.value === "group_texture")
+        (getChild(getChild(bg, "data"), "textures")?.value || []).forEach(
+          (t) => {
+            const loc = getChild(
+              getChild(getChild(t, "p"), "data"),
+              "imageLocation",
+            );
+            if (loc && /gui\/base\/(fluid_)?slot\.png$/.test(loc.value))
+              loc.value = loc.value.replace(
+                /(fluid_)?slot\.png$/,
+                toFluid ? "fluid_slot.png" : "slot.png",
+              );
+          },
+        );
+
+      const idTag = getChild(d, "id"),
+        m = /^(item|fluid)_(in|out)_(\d+)$/.exec(idTag?.value || "");
+      if (m) {
+        const base = `${toFluid ? "fluid" : "item"}_${m[2]}_`;
+        let i = +m[3];
+        while (used.has(base + i)) i++;
+        idTag.value = base + i;
+        used.add(idTag.value);
+      } else if (idTag?.value) used.add(idTag.value);
+    });
+    commit();
+  }
+  byId("swap").onclick = swapSlotTypes;
   byId("imp").onchange = async (e) => {
     for (const f of e.target.files)
       await loadPaletteFrom(new Uint8Array(await f.arrayBuffer()));
