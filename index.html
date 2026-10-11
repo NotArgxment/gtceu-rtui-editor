@@ -1,19 +1,73 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RTUI Editor</title><link rel="stylesheet" href="style.css"></head><body>
-        <header><b>RTUI Editor</b><span class="muted">GregTech Modern / LDLib recipe type UI files</span></header>
-        <section id="s1"><div id="drop">Drop a <code>.rtui</code> file here or <label class="link"><input type="file" id="file" hidden>browse</label></div>
-            <div class="muted center">— or create a new one —</div>
-            <div class="card"><label>1. File name <input id="nName" placeholder="lathe" autocomplete="off">.rtui</label>
-                <button id="n1">Next</button>
-                <div id="step2" hidden><label>2. Recipe type <input id="nType" list="types" placeholder="gtceu:lathe" autocomplete="off"></label><datalist id="types"></datalist>
-                    <button id="n2">Create</button><div class="muted" id="nHint"></div></div></div><div id="err1" class="bad"></div></section>
-        <section id="s2" hidden>
-            <div class="bar"><label>Name <input id="name" size="16">.rtui</label><label>Recipe type <input id="type" list="types" size="22"></label>
-                <button id="tRoot" class="tab on">root</button><button id="tRes" class="tab">resources</button>
-                <button id="fix">Fix legacy names</button><button id="dl" class="pri">Download .rtui</button><button id="back">New / open</button></div>
-            <div id="path" class="muted"></div>
-            <div class="split"><div class="top">
-                    <div class="vis"><div class="bar"><select id="proto"></select><button id="add" class="pri">+ Add</button><button id="icons" title="Pick an overlay icon for the selected slots (or all slots)">Assign icons ▾</button><label class="link"><input type="file" id="imp" accept=".rtui" multiple hidden>import widgets from .rtui</label></div><div id="tree"></div><div id="insp"></div><datalist id="texlist"></datalist></div>
-                    <div class="right"><div class="bar"><label>Zoom <select id="zoom"><option>2<option selected>3<option>4<option>6</select></label>
-                            <label><input type="checkbox" id="ids"> IDs</label><label><input type="checkbox" id="anim" checked> Animate</label></div>
-                        <div class="cv"><canvas id="cv"></canvas></div><ul id="probs"></ul></div></div><div class="left"><textarea id="ed" spellcheck="false"></textarea><div id="perr" class="bad"></div></div></div></section>
-        <script src="nbt.js"></script><script src="template.js"></script><script src="app.js"></script><script src="textures.js"></script><script src="editor.js"></script></body></html>
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RTUI Editor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header><b>RTUI Editor</b><span class="muted">GregTech Modern / LDLib recipe type UI files</span></header>
+    <section id="s1">
+        <div id="drop">Drop a <code>.rtui</code> file here or <label class="link"><input type="file" id="file"
+                    hidden>browse</label></div>
+        <div class="muted center">— or create a new one —</div>
+        <div class="card"><label>1. File name <input id="nName" placeholder="lathe" autocomplete="off">.rtui</label>
+            <button id="n1">Next</button>
+            <div id="step2" hidden><label>2. Recipe type <input id="nType" list="types" placeholder="gtceu:lathe"
+                        autocomplete="off"></label><datalist id="types"></datalist>
+                <button id="n2">Create</button>
+                <div class="muted" id="nHint"></div>
+            </div>
+        </div>
+        <div id="err1" class="bad"></div>
+    </section>
+    <section id="s2" hidden>
+        <div class="bar"><label>Name <input id="name" size="16">.rtui</label><label>Recipe type <input id="type"
+                    list="types" size="22"></label>
+            <button id="tRoot" class="tab on">root</button><button id="tRes" class="tab">resources</button>
+            <button id="fix">Fix legacy names</button><button id="dl" class="pri">Download .rtui</button><button
+                id="back">New / open</button>
+        </div>
+        <div id="path" class="muted"></div>
+        <div class="split">
+            <div class="top">
+                <div class="vis">
+                    <div class="bar"><select id="proto"></select><button id="add" class="pri">+ Add</button><button
+                            id="shapes" title="Generate slots arranged as a circle, polygon, line, grid or frame">Shapes
+                            ▾</button><button id="icons"
+                            title="Pick an overlay icon for the selected slots (or all slots)">Assign icons
+                            ▾</button><label class="link"><input type="file" id="imp" accept=".rtui" multiple
+                                hidden>import widgets from .rtui</label></div>
+                    <div id="tree"></div>
+                    <div id="insp"></div><datalist id="texlist"></datalist>
+                </div>
+                <div class="right">
+                    <div class="bar"><label>Zoom <select id="zoom">
+                                <option>2
+                                <option selected>3
+                                <option>4
+                                <option>6
+                            </select></label>
+                        <label><input type="checkbox" id="ids"> IDs</label><label><input type="checkbox" id="anim"
+                                checked> Animate</label>
+                    </div>
+                    <div class="cv"><canvas id="cv"></canvas></div>
+                    <ul id="probs"></ul>
+                </div>
+            </div>
+            <div class="left"><textarea id="ed" spellcheck="false"></textarea>
+                <div id="perr" class="bad"></div>
+            </div>
+        </div>
+    </section>
+    <script src="nbt.js"></script>
+    <script src="template.js"></script>
+    <script src="app.js"></script>
+    <script src="textures.js"></script>
+    <script src="editor.js"></script>
+</body>
+
+</html>

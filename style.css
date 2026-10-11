@@ -569,3 +569,83 @@ canvas {
     white-space: nowrap;
     text-align: center;
 }
+
+#shapeMenu {
+    position: fixed;
+    z-index: 1000;
+    width: min(620px, calc(100vw - 16px));
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+    overflow: auto;
+}
+#shapeMenu[hidden] {
+    display: none;
+}
+#shapeMenu .sm-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px;
+}
+#shapeMenu .sm-form {
+    flex: 1 1 300px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+    align-content: start;
+}
+#shapeMenu .sm-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 12px;
+    color: var(--muted);
+}
+#shapeMenu .sm-form label[hidden] {
+    display: none;
+}
+#shapeMenu .sm-form input,
+#shapeMenu .sm-form select {
+    width: 100%;
+    min-width: 0;
+}
+#shapeMenu .sm-form .sm-check {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+#shapeMenu .sm-form .sm-check input {
+    width: auto;
+}
+#shapeMenu .sm-side {
+    flex: 0 0 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0 auto;
+}
+#shapePrev {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    width: 200px;
+    height: 200px;
+}
+#shapeMenu .sm-foot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--line);
+}
+#shapeMenu .sm-foot .muted {
+    flex: 1;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

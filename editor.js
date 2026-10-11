@@ -563,6 +563,351 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !iconMenu.hidden) closeIconMenu();
   });
+  // ---- Shapes: generate a group of item/fluid slots laid out as a circle, polygon, line, grid or frame ----
+  const SLOT = 18;
+  const shapeCfg = {
+    shape: "circle",
+    fluid: false,
+    out: true,
+    count: 8,
+    rx: 30,
+    ry: 30,
+    start: 0,
+    sweep: 360,
+    sides: 3,
+    radius: 30,
+    rotation: 0,
+    vertical: false,
+    cols: 3,
+    rows: 3,
+    gap: 0,
+    grow: true,
+  };
+  // Angles are in degrees, 0 = top, clockwise. Returns slot centres (floats, origin = shape centre).
+  function shapeCenters(c) {
+    const n = Math.max(1, Math.round(c.count)),
+      step = SLOT + c.gap,
+      pts = [];
+    const rad = (d) => (d * Math.PI) / 180;
+    if (c.shape === "circle") {
+      const full = c.sweep >= 360 || n === 1;
+      for (let i = 0; i < n; i++) {
+        const a = rad(
+          c.start + (full ? (360 * i) / n : (c.sweep * i) / (n - 1)),
+        );
+        pts.push([c.rx * Math.sin(a), -c.ry * Math.cos(a)]);
+      }
+    } else if (c.shape === "polygon") {
+      const s = Math.max(3, Math.round(c.sides)),
+        v = Array.from({ length: s }, (_, k) => {
+          const a = rad(c.rotation + (360 * k) / s);
+          return [c.radius * Math.sin(a), -c.radius * Math.cos(a)];
+        }),
+        len = v.map((p, k) =>
+          Math.hypot(v[(k + 1) % s][0] - p[0], v[(k + 1) % s][1] - p[1]),
+        ),
+        total = len.reduce((a, b) => a + b, 0);
+      for (let i = 0; i < n; i++) {
+        let d = (total * i) / n,
+          k = 0;
+        while (k < s - 1 && d > len[k]) ((d -= len[k]), k++);
+        const t = len[k] ? d / len[k] : 0,
+          a = v[k],
+          b = v[(k + 1) % s];
+        pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+      }
+    } else if (c.shape === "line") {
+      for (let i = 0; i < n; i++)
+        pts.push(c.vertical ? [0, i * step] : [i * step, 0]);
+    } else {
+      const cols = Math.max(1, Math.round(c.cols)),
+        rows = Math.max(1, Math.round(c.rows));
+      for (let r = 0; r < rows; r++)
+        for (let k = 0; k < cols; k++)
+          if (
+            c.shape === "grid" ||
+            r === 0 ||
+            r === rows - 1 ||
+            k === 0 ||
+            k === cols - 1
+          )
+            pts.push([k * step, r * step]);
+      if (c.shape === "frame") {
+        // clockwise from top-left
+        const at = (k, r) =>
+          pts.find((p) => p[0] === k * step && p[1] === r * step);
+        const o = [];
+        for (let k = 0; k < cols; k++) o.push(at(k, 0));
+        for (let r = 1; r < rows; r++) o.push(at(cols - 1, r));
+        for (let k = cols - 2; k >= 0 && rows > 1; k--) o.push(at(k, rows - 1));
+        for (let r = rows - 2; r >= 1 && cols > 1; r--) o.push(at(0, r));
+        return o;
+      }
+    }
+    return pts;
+  }
+  // Integer top-left slot positions (origin = group top-left, 3px padding) and group size.
+  function shapeLayout(c) {
+    const ctr = shapeCenters(c);
+    if (!ctr.length) return { slots: [], w: 0, h: 0, overlaps: 0 };
+    const minX = Math.min(...ctr.map((p) => p[0])),
+      minY = Math.min(...ctr.map((p) => p[1]));
+    const slots = ctr.map((p) => [
+      Math.round(p[0] - minX) + 3,
+      Math.round(p[1] - minY) + 3,
+    ]);
+    const w = Math.max(...slots.map((s) => s[0])) + SLOT + 3,
+      h = Math.max(...slots.map((s) => s[1])) + SLOT + 3;
+    let overlaps = 0;
+    for (let i = 0; i < slots.length; i++)
+      for (let j = i + 1; j < slots.length; j++)
+        if (
+          Math.max(
+            Math.abs(slots[i][0] - slots[j][0]),
+            Math.abs(slots[i][1] - slots[j][1]),
+          ) <
+          SLOT + c.gap
+        )
+          overlaps++;
+    return { slots, w, h, overlaps };
+  }
+  // Smallest radius (keeping the X:Y ratio for circles) with no overlapping slots.
+  function autoRadius(c) {
+    const t = { ...c };
+    if (c.shape === "circle") {
+      const ratio = c.rx > 0 ? c.ry / c.rx : 1;
+      for (let r = 4; r < 600; r++) {
+        t.rx = r;
+        t.ry = r * ratio;
+        if (!shapeLayout(t).overlaps)
+          return { rx: r, ry: Math.round(r * ratio) };
+      }
+    } else if (c.shape === "polygon") {
+      for (let r = 4; r < 600; r++) {
+        t.radius = r;
+        if (!shapeLayout(t).overlaps) return { radius: r };
+      }
+    }
+    return null;
+  }
+
+  function createShape(c) {
+    const kind = c.fluid ? "gtm_fluid_slot" : "gtm_item_slot",
+      slotProto = editor.palette.get(kind),
+      groupProto = editor.palette.get("group");
+    if (!slotProto || !groupProto) {
+      alert(
+        `The palette has no "${!slotProto ? kind : "group"}" widget to copy.`,
+      );
+      return false;
+    }
+    const L = shapeLayout(c);
+    if (!L.slots.length) return false;
+    const prefix = `${c.fluid ? "fluid" : "item"}_${c.out ? "out" : "in"}_`,
+      re = new RegExp("^" + prefix + "(\\d+)$");
+    let next = 0;
+    collectWidgets().forEach((n) => {
+      const m = re.exec(getChild(n.data, "id")?.value || "");
+      if (m) next = Math.max(next, +m[1] + 1);
+    });
+    pushHistory();
+    const host = containerFor(selectedRoots()),
+      hsz = ensureCompound(host, "size"),
+      group = structuredClone(groupProto),
+      gd = getChild(group, "data");
+    const setPos = (d, x, y) => {
+      const sp = ensureCompound(d, "selfPosition");
+      setIntChild(sp, "x", x);
+      setIntChild(sp, "y", y);
+    };
+    const setSize = (d, w, h) => {
+      const sz = ensureCompound(d, "size");
+      setIntChild(sz, "width", w);
+      setIntChild(sz, "height", h);
+    };
+    const hw = getNumber(hsz, "width"),
+      hh = getNumber(hsz, "height");
+    const gx = c.grow ? Math.max(0, Math.round((hw - L.w) / 2)) : 0,
+      gy = c.grow ? Math.max(0, Math.round((hh - L.h) / 2)) : 0;
+    setPos(gd, gx, gy);
+    setSize(gd, L.w, L.h);
+    const ch =
+      getChild(gd, "children") ||
+      (gd.value.set("children", { kind: TAG.LIST, value: [] }),
+      getChild(gd, "children"));
+    ch.value = [];
+    L.slots.forEach(([x, y], i) => {
+      const s = structuredClone(slotProto),
+        sd = getChild(s, "data");
+      setPos(sd, x, y);
+      setSize(sd, SLOT, SLOT);
+      getChild(sd, "id").value = prefix + (next + i);
+      ch.value.push(s);
+    });
+    if (c.grow) {
+      // make the container big enough for the new group
+      if (hw < gx + L.w) setIntChild(hsz, "width", gx + L.w);
+      if (hh < gy + L.h) setIntChild(hsz, "height", gy + L.h);
+    }
+    let hostChildren = getChild(host, "children");
+    if (!hostChildren)
+      host.value.set(
+        "children",
+        (hostChildren = { kind: TAG.LIST, value: [] }),
+      );
+    hostChildren.value.push(group);
+    editor.selection.clear();
+    editor.selection.add(gd);
+    commit();
+    return true;
+  }
+
+  const shapeMenu = document.createElement("div");
+  shapeMenu.id = "shapeMenu";
+  shapeMenu.hidden = true;
+  shapeMenu.innerHTML = `
+    <div class="sm-body">
+      <div class="sm-form">
+        <label>Shape <select data-k="shape"><option value="circle">Circle / arc</option><option value="polygon">Polygon outline</option><option value="line">Line</option><option value="grid">Grid</option><option value="frame">Frame (hollow rectangle)</option></select></label>
+        <label>Slot type <select data-k="fluid"><option value="0">Item slots</option><option value="1">Fluid slots</option></select></label>
+        <label>Direction <select data-k="out"><option value="1">Output</option><option value="0">Input</option></select></label>
+        <label data-for="circle polygon line">Count <input type="number" data-k="count" min="1" max="200"></label>
+        <label data-for="circle">Radius X <input type="number" data-k="rx" min="0"></label>
+        <label data-for="circle">Radius Y <input type="number" data-k="ry" min="0"></label>
+        <label data-for="circle">Start angle° <input type="number" data-k="start"></label>
+        <label data-for="circle">Sweep° <input type="number" data-k="sweep" min="1" max="360"></label>
+        <label data-for="polygon">Sides <input type="number" data-k="sides" min="3" max="24"></label>
+        <label data-for="polygon">Radius <input type="number" data-k="radius" min="0"></label>
+        <label data-for="polygon">Rotation° <input type="number" data-k="rotation"></label>
+        <label data-for="line">Orientation <select data-k="vertical"><option value="0">Horizontal</option><option value="1">Vertical</option></select></label>
+        <label data-for="grid frame">Columns <input type="number" data-k="cols" min="1" max="30"></label>
+        <label data-for="grid frame">Rows <input type="number" data-k="rows" min="1" max="30"></label>
+        <label>Gap px <input type="number" data-k="gap" min="0"></label>
+        <label class="sm-check"><input type="checkbox" data-k="grow"> Centre in / grow container</label>
+      </div>
+      <div class="sm-side"><canvas id="shapePrev" width="200" height="200"></canvas><div id="shapeInfo" class="muted"></div></div>
+    </div>
+    <div class="sm-foot"><button id="shapeAuto" type="button">Auto radius</button><span class="muted" id="shapeWhere"></span><button id="shapeGo" type="button" class="pri">Create</button></div>`;
+  document.body.appendChild(shapeMenu);
+  const smField = (k) => shapeMenu.querySelector(`[data-k="${k}"]`);
+  function readShapeForm() {
+    shapeMenu.querySelectorAll("[data-k]").forEach((el) => {
+      const k = el.dataset.k;
+      if (el.type === "checkbox") shapeCfg[k] = el.checked;
+      else if (el.tagName === "SELECT")
+        shapeCfg[k] = k === "shape" ? el.value : el.value === "1";
+      else if (el.value !== "" && !isNaN(+el.value)) shapeCfg[k] = +el.value;
+    });
+  }
+  function writeShapeForm() {
+    shapeMenu.querySelectorAll("[data-k]").forEach((el) => {
+      const v = shapeCfg[el.dataset.k];
+      if (el.type === "checkbox") el.checked = !!v;
+      else if (el.tagName === "SELECT")
+        el.value = el.dataset.k === "shape" ? v : v ? "1" : "0";
+      else el.value = v;
+    });
+  }
+  function refreshShapeMenu() {
+    shapeMenu.querySelectorAll("[data-for]").forEach((l) => {
+      l.hidden = !l.dataset.for.split(" ").includes(shapeCfg.shape);
+    });
+    shapeMenu.querySelector("#shapeAuto").hidden = ![
+      "circle",
+      "polygon",
+    ].includes(shapeCfg.shape);
+    const L = shapeLayout(shapeCfg),
+      cv = shapeMenu.querySelector("#shapePrev"),
+      g = cv.getContext("2d");
+    g.clearRect(0, 0, cv.width, cv.height);
+    g.fillStyle = "#c6c6c6";
+    g.fillRect(0, 0, cv.width, cv.height);
+    if (L.slots.length) {
+      const k = Math.min(1, (cv.width - 10) / L.w, (cv.height - 10) / L.h),
+        ox = (cv.width - L.w * k) / 2,
+        oy = (cv.height - L.h * k) / 2;
+      g.strokeStyle = "#000";
+      g.lineWidth = 1;
+      g.strokeRect(ox + 0.5, oy + 0.5, L.w * k - 1, L.h * k - 1);
+      g.font = Math.max(7, 9 * k) + "px monospace";
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      L.slots.forEach(([x, y], i) => {
+        g.fillStyle = shapeCfg.fluid ? "#3a3a3a" : "#8b8b8b";
+        g.fillRect(ox + x * k, oy + y * k, SLOT * k, SLOT * k);
+        g.strokeStyle = "#373737";
+        g.strokeRect(
+          ox + x * k + 0.5,
+          oy + y * k + 0.5,
+          SLOT * k - 1,
+          SLOT * k - 1,
+        );
+        g.fillStyle = "#fff";
+        g.fillText(String(i), ox + (x + SLOT / 2) * k, oy + (y + SLOT / 2) * k);
+      });
+    }
+    shapeMenu.querySelector("#shapeInfo").textContent =
+      `${L.slots.length} slot(s), group ${L.w}×${L.h}` +
+      (L.overlaps ? ` — ${L.overlaps} overlapping pair(s)` : "");
+    shapeMenu
+      .querySelector("#shapeInfo")
+      .classList.toggle("bad", L.overlaps > 0);
+    const host = containerFor(selectedRoots()),
+      t =
+        host === state.root
+          ? "root"
+          : getChild(host, "id")?.value || "selected group";
+    shapeMenu.querySelector("#shapeWhere").textContent = "Adds to: " + t;
+  }
+  shapeMenu.addEventListener(
+    "input",
+    () => (readShapeForm(), refreshShapeMenu()),
+  );
+  shapeMenu.querySelector("#shapeAuto").onclick = () => {
+    const r = autoRadius(shapeCfg);
+    if (r) Object.assign(shapeCfg, r);
+    writeShapeForm();
+    refreshShapeMenu();
+  };
+  shapeMenu.querySelector("#shapeGo").onclick = () => {
+    readShapeForm();
+    if (shapeCfg.shape === "grid" || shapeCfg.shape === "frame")
+      shapeCfg.count = Math.max(1, shapeCfg.cols * shapeCfg.rows);
+    if (createShape(shapeCfg)) closeShapeMenu();
+  };
+  function closeShapeMenu() {
+    shapeMenu.hidden = true;
+  }
+  function openShapeMenu() {
+    closeIconMenu();
+    writeShapeForm();
+    shapeMenu.hidden = false;
+    const r = byId("shapes").getBoundingClientRect(),
+      w = shapeMenu.offsetWidth;
+    shapeMenu.style.left =
+      Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+    shapeMenu.style.top = r.bottom + 6 + "px";
+    shapeMenu.style.maxHeight =
+      Math.max(240, innerHeight - r.bottom - 20) + "px";
+    refreshShapeMenu();
+  }
+  byId("shapes").onclick = (e) => {
+    e.stopPropagation();
+    shapeMenu.hidden ? openShapeMenu() : closeShapeMenu();
+  };
+  document.addEventListener("pointerdown", (e) => {
+    if (
+      !shapeMenu.hidden &&
+      !shapeMenu.contains(e.target) &&
+      e.target !== byId("shapes")
+    )
+      closeShapeMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !shapeMenu.hidden) closeShapeMenu();
+  });
+  const baseIconsClick = byId("icons").onclick;
+  byId("icons").onclick = (e) => (closeShapeMenu(), baseIconsClick(e));
   byId("imp").onchange = async (e) => {
     for (const f of e.target.files)
       await loadPaletteFrom(new Uint8Array(await f.arrayBuffer()));
@@ -862,7 +1207,8 @@
   };
   const setPaneHeight = (el, h) => {
     el.style.flex = "none";
-    el.style.height = Math.min(Math.max(80, h), el.parentElement.clientHeight - 110) + "px";
+    el.style.height =
+      Math.min(Math.max(80, h), el.parentElement.clientHeight - 110) + "px";
   };
   const addGutter = (
     reference,
