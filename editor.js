@@ -426,7 +426,7 @@
     addWidget(structuredClone(p), host);
     commit();
   };
-
+  // Slot icons are not baked into new slots: the "Assign icons" menu applies a chosen overlay on demand.
   const ICON_PREFIX = "gtceu:textures/gui/overlay/";
   const isOverlayEntry = (e) =>
     /\/overlay\//.test(
@@ -439,7 +439,7 @@
     );
   const isSlotNode = (n) =>
     n.wrap && /(item|fluid)_slot$/.test(getChild(n.wrap, "type")?.value || "");
-
+  // Slots the menu applies to: slots inside the current selection (a selected group counts), else every slot.
   function iconTargets() {
     const all = collectWidgets(),
       by = new Map(all.map((n) => [n.data, n])),
@@ -451,7 +451,7 @@
     });
     return { slots, targets: sel.length ? sel : slots, scoped: sel.length > 0 };
   }
-
+  // loc === null removes the overlay; otherwise replaces any existing overlay (or adds one).
   function assignSlotIcon(loc) {
     const { targets } = iconTargets();
     if (!targets.length) return;
@@ -563,7 +563,7 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !iconMenu.hidden) closeIconMenu();
   });
-  
+  // ---- Shapes: generate a group of item/fluid slots laid out as a circle, polygon, line, grid or frame ----
   const SLOT = 18;
   const shapeCfg = {
     shape: "circle",
@@ -583,7 +583,7 @@
     gap: 0,
     grow: true,
   };
-  
+  // Angles are in degrees, 0 = top, clockwise. Returns slot centres (floats, origin = shape centre).
   function shapeCenters(c) {
     const n = Math.max(1, Math.round(c.count)),
       step = SLOT + c.gap,
@@ -633,7 +633,7 @@
           )
             pts.push([k * step, r * step]);
       if (c.shape === "frame") {
-      
+        // clockwise from top-left
         const at = (k, r) =>
           pts.find((p) => p[0] === k * step && p[1] === r * step);
         const o = [];
@@ -646,7 +646,7 @@
     }
     return pts;
   }
-  
+  // Integer top-left slot positions (origin = group top-left, 3px padding) and group size.
   function shapeLayout(c) {
     const ctr = shapeCenters(c);
     if (!ctr.length) return { slots: [], w: 0, h: 0, overlaps: 0 };
@@ -671,7 +671,7 @@
           overlaps++;
     return { slots, w, h, overlaps };
   }
- 
+  // Smallest radius (keeping the X:Y ratio for circles) with no overlapping slots.
   function autoRadius(c) {
     const t = { ...c };
     if (c.shape === "circle") {
@@ -745,7 +745,7 @@
       ch.value.push(s);
     });
     if (c.grow) {
-      
+      // make the container big enough for the new group
       if (hw < gx + L.w) setIntChild(hsz, "width", gx + L.w);
       if (hh < gy + L.h) setIntChild(hsz, "height", gy + L.h);
     }
@@ -908,7 +908,7 @@
   });
   const baseIconsClick = byId("icons").onclick;
   byId("icons").onclick = (e) => (closeShapeMenu(), baseIconsClick(e));
-
+  // ---- Swap item <-> fluid slots (selected slots / groups, or every slot when nothing is selected) ----
   const ITEM_ONLY = ["canPutItems", "canTakeItems"],
     FLUID_ONLY = [
       "showAmount",
@@ -930,7 +930,7 @@
           .map((n) => getChild(n.data, "id")?.value)
           .filter(Boolean),
       );
-
+    // sort so renumbering (only needed on id collisions) is deterministic: keep original order
     targets.forEach((n) => {
       const toFluid = getChild(n.wrap, "type").value.endsWith("item_slot"),
         prefixOld = getChild(n.wrap, "type").value.replace(
@@ -949,7 +949,7 @@
           const pv = getChild(getChild(proto, "data"), k);
           if (pv && !d.value.has(k)) d.value.set(k, structuredClone(pv));
         });
-
+      // base texture slot.png <-> fluid_slot.png (overlays are kept)
       const bg = getChild(d, "backgroundTexture");
       if (bg && getChild(bg, "type")?.value === "group_texture")
         (getChild(getChild(bg, "data"), "textures")?.value || []).forEach(
@@ -965,7 +965,7 @@
               );
           },
         );
-
+      // id: item_out_3 <-> fluid_out_3 (renumbered if that id is already taken)
       const idTag = getChild(d, "id"),
         m = /^(item|fluid)_(in|out)_(\d+)$/.exec(idTag?.value || "");
       if (m) {
@@ -979,6 +979,211 @@
     commit();
   }
   byId("swap").onclick = swapSlotTypes;
+  const PROG_TEXTURES = TEXTURES.filter((t) => t.includes("progress_bar"));
+  const DIRECTIONS = [
+    "LEFT_TO_RIGHT",
+    "RIGHT_TO_LEFT",
+    "UP_TO_DOWN",
+    "DOWN_TO_UP",
+  ];
+  const setTag = (c, k, kind, v) => {
+    const t = getChild(c, k);
+    if (t) t.value = v;
+    else c.value.set(k, { kind, value: v });
+  };
+  const resTexture = (loc, offsetY, imageHeight) =>
+    fromSnbt(
+      `{type: "resource_texture", data: {offsetX: 0.0f, imageWidth: 1.0f, yOffset: 0.0f, xOffset: 0.0f, offsetY: ${offsetY}f, color: -1, rotation: 0.0f, scale: 1.0f, imageHeight: ${imageHeight}f, imageLocation: "${loc}"}}`,
+    );
+  const isProgressNode = (n) =>
+    n.wrap && getChild(n.wrap, "type")?.value === "progress";
+  function progressTargets() {
+    const all = collectWidgets(),
+      by = new Map(all.map((n) => [n.data, n])),
+      bars = all.filter(isProgressNode),
+      sel = bars.filter((n) => {
+        for (let d = n.data; d; d = by.get(d)?.parent)
+          if (editor.selection.has(d)) return true;
+        return false;
+      });
+    return { bars, targets: sel.length ? sel : bars, scoped: sel.length > 0 };
+  }
+  function ensureProgressTexture(d) {
+    let pt = getChild(d, "progressTexture");
+    if (!pt) {
+      pt = fromSnbt(
+        `{type: "progress_texture", data: {yOffset: 0.0f, xOffset: 0.0f, fillDirection: "LEFT_TO_RIGHT", rotation: 0.0f, scale: 1.0f}}`,
+      );
+      d.value.set("progressTexture", pt);
+    }
+    return getChild(pt, "data");
+  }
+  const sheetLoc = (tex) =>
+    getChild(getChild(tex, "data") || { value: new Map() }, "imageLocation")
+      ?.value || "";
+  function editProgress(fn) {
+    const { targets } = progressTargets();
+    if (!targets.length) return alert("No progress widget found.");
+    pushHistory();
+    targets.forEach((n) => fn(ensureProgressTexture(n.data), n));
+    commit();
+  }
+  function applyEmpty(pd, mode, otherLoc) {
+    const filled = getChild(pd, "filledBarArea"),
+      loc = mode === "other" ? otherLoc : sheetLoc(filled);
+    if (mode === "none" || !loc) pd.value.delete("emptyBarArea");
+    else pd.value.set("emptyBarArea", resTexture(loc, 0, 0.5));
+  }
+  async function applyProgressTexture(loc) {
+    const mode = progMenu.querySelector("#progEmpty").value,
+      other = progMenu.querySelector("#progEmptyLoc").value.trim();
+    const resize = progMenu.querySelector("#progResize").checked,
+      im = loadTextureImage(loc);
+    if (resize && !isImageReady(im))
+      await new Promise(
+        (ok) => (
+          im.addEventListener("load", ok, { once: true }),
+          im.addEventListener("error", ok, { once: true })
+        ),
+      );
+    editProgress((pd, n) => {
+      pd.value.set("filledBarArea", resTexture(loc, 0.5, 0.5));
+      applyEmpty(pd, mode, other);
+      if (resize && isImageReady(im)) {
+        const sz = ensureCompound(n.data, "size");
+        setIntChild(sz, "width", im.naturalWidth);
+        setIntChild(
+          sz,
+          "height",
+          Math.max(1, Math.round(im.naturalHeight / 2)),
+        );
+      }
+    });
+  }
+
+  const progMenu = document.createElement("div");
+  progMenu.id = "progMenu";
+  progMenu.hidden = true;
+  progMenu.innerHTML = `
+    <div class="pm-head">
+      <label>Fill direction <select id="progDir">${DIRECTIONS.map((d) => `<option>${d}</option>`).join("")}</select></label>
+      <label>Rotation° <span class="pm-rot"><input id="progRot" type="number" step="5"><button type="button" data-rot="0">0</button><button type="button" data-rot="90">90</button><button type="button" data-rot="180">180</button><button type="button" data-rot="270">270</button></span></label>
+      <label>emptyBarArea <select id="progEmpty"><option value="same">Same texture (top half)</option><option value="other">Other texture (its top half)</option><option value="none">None</option></select></label>
+      <label id="progEmptyWrap">Empty texture <input id="progEmptyLoc" list="texlist" placeholder="gtceu:textures/gui/progress_bar/…" autocomplete="off"></label>
+      <label class="pm-check"><input id="progResize" type="checkbox" checked> Resize widget to the texture (width × half height)</label>
+      <div id="progScope" class="muted"></div>
+      <div class="muted pm-hint">Rotation turns the whole bar around its centre. For a bar that fills downward use LEFT_TO_RIGHT + 90°. Textures are sheets: top half = empty, bottom half = filled.</div>
+      <input id="progSearch" placeholder="Search textures…" autocomplete="off">
+    </div>
+    <div id="progGrid"></div>`;
+  document.body.appendChild(progMenu);
+  const pm = (s) => progMenu.querySelector(s),
+    progGrid = pm("#progGrid");
+  PROG_TEXTURES.forEach((loc) => {
+    const m = /^(\w+):textures\/(?:gui\/)?(.+)$/.exec(loc),
+      label = loc.replace(/^.*\/(progress_bar_)?/, "").replace(/\.png$/, "");
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "im-tile";
+    b.title = loc;
+    b.dataset.name = label.toLowerCase();
+    b.innerHTML = `<span class="im-thumb"><img src="textures/${m[1]}/${m[2]}" alt="" loading="lazy"></span><span class="im-name"></span>`;
+    b.querySelector(".im-name").textContent = label;
+    b.onclick = () => applyProgressTexture(loc);
+    progGrid.appendChild(b);
+  });
+  pm("#progSearch").oninput = () => {
+    const q = pm("#progSearch").value.trim().toLowerCase();
+    progGrid
+      .querySelectorAll(".im-tile")
+      .forEach((t) => (t.hidden = !!q && !t.dataset.name.includes(q)));
+  };
+  const syncEmptyWrap = () =>
+    (pm("#progEmptyWrap").hidden = pm("#progEmpty").value !== "other");
+  pm("#progDir").onchange = () =>
+    editProgress((pd) =>
+      setTag(pd, "fillDirection", TAG.STRING, pm("#progDir").value),
+    );
+  const setRotation = (v) =>
+    editProgress((pd) => setTag(pd, "rotation", TAG.FLOAT, v));
+  pm("#progRot").onchange = () => {
+    const v = +pm("#progRot").value;
+    if (!isNaN(v)) setRotation(v);
+  };
+  progMenu
+    .querySelectorAll("[data-rot]")
+    .forEach(
+      (b) =>
+        (b.onclick = () => (
+          (pm("#progRot").value = b.dataset.rot),
+          setRotation(+b.dataset.rot)
+        )),
+    );
+  const applyEmptyFromForm = () => {
+    syncEmptyWrap();
+    const mode = pm("#progEmpty").value,
+      other = pm("#progEmptyLoc").value.trim();
+    if (mode === "other" && !other) return;
+    editProgress((pd) => applyEmpty(pd, mode, other));
+  };
+  pm("#progEmpty").onchange = applyEmptyFromForm;
+  pm("#progEmptyLoc").onchange = applyEmptyFromForm;
+
+  function closeProgMenu() {
+    progMenu.hidden = true;
+  }
+  function openProgMenu() {
+    closeIconMenu();
+    closeShapeMenu();
+    const { bars, targets, scoped } = progressTargets();
+    pm("#progScope").textContent = !bars.length
+      ? "No progress widget found — add one with “+ Add” first."
+      : scoped
+        ? `Applies to ${targets.length} selected progress widget(s)`
+        : `Applies to ${targets.length === 1 ? "the progress widget" : "all " + targets.length + " progress widgets"}`;
+    const t = targets[0] && getChild(targets[0].data, "progressTexture"),
+      pd = t && getChild(t, "data");
+    pm("#progDir").value =
+      (pd && getChild(pd, "fillDirection")?.value) || "LEFT_TO_RIGHT";
+    pm("#progRot").value = pd ? getNumber(pd, "rotation") : 0;
+    const empty = pd && getChild(pd, "emptyBarArea"),
+      fl = pd && getChild(pd, "filledBarArea");
+    pm("#progEmpty").value = !empty
+      ? "none"
+      : sheetLoc(empty) === sheetLoc(fl)
+        ? "same"
+        : "other";
+    pm("#progEmptyLoc").value =
+      pm("#progEmpty").value === "other" ? sheetLoc(empty) : "";
+    syncEmptyWrap();
+    progMenu.hidden = false;
+    const r = byId("prog").getBoundingClientRect(),
+      w = progMenu.offsetWidth;
+    progMenu.style.left =
+      Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+    progMenu.style.top = r.bottom + 6 + "px";
+    progMenu.style.maxHeight =
+      Math.max(260, innerHeight - r.bottom - 20) + "px";
+  }
+  byId("prog").onclick = (e) => {
+    e.stopPropagation();
+    progMenu.hidden ? openProgMenu() : closeProgMenu();
+  };
+  document.addEventListener("pointerdown", (e) => {
+    if (
+      !progMenu.hidden &&
+      !progMenu.contains(e.target) &&
+      e.target !== byId("prog")
+    )
+      closeProgMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !progMenu.hidden) closeProgMenu();
+  });
+  const baseIconsClick2 = byId("icons").onclick,
+    baseShapesClick = byId("shapes").onclick;
+  byId("icons").onclick = (e) => (closeProgMenu(), baseIconsClick2(e));
+  byId("shapes").onclick = (e) => (closeProgMenu(), baseShapesClick(e));
   byId("imp").onchange = async (e) => {
     for (const f of e.target.files)
       await loadPaletteFrom(new Uint8Array(await f.arrayBuffer()));
