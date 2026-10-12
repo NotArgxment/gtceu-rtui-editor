@@ -261,12 +261,12 @@
           k,
           tag.value,
           (v) =>
-          (tag.value =
-            tag.kind === TAG.LONG
-              ? BigInt(Math.round(v))
-              : [TAG.FLOAT, TAG.DOUBLE].includes(tag.kind)
-                ? v
-                : Math.round(v)),
+            (tag.value =
+              tag.kind === TAG.LONG
+                ? BigInt(Math.round(v))
+                : [TAG.FLOAT, TAG.DOUBLE].includes(tag.kind)
+                  ? v
+                  : Math.round(v)),
           "number",
         );
       else if (tag.kind === TAG.STRING)
@@ -393,9 +393,9 @@
   }
 
   const fillPaletteOptions = () =>
-  (byId("proto").innerHTML = [...editor.palette.keys()]
-    .map((t) => `<option>${t}</option>`)
-    .join(""));
+    (byId("proto").innerHTML = [...editor.palette.keys()]
+      .map((t) => `<option>${t}</option>`)
+      .join(""));
   async function loadPaletteFrom(u8) {
     if (u8[0] === 0x1f && u8[1] === 0x8b)
       u8 = new Uint8Array(
@@ -431,7 +431,7 @@
   const isOverlayEntry = (e) =>
     /\/overlay\//.test(
       getChild(getChild(getChild(e, "p"), "data"), "imageLocation")?.value ||
-      "",
+        "",
     );
   const makeIconEntry = (loc) =>
     fromSnbt(
@@ -734,7 +734,7 @@
     const ch =
       getChild(gd, "children") ||
       (gd.value.set("children", { kind: TAG.LIST, value: [] }),
-        getChild(gd, "children"));
+      getChild(gd, "children"));
     ch.value = [];
     L.slots.forEach(([x, y], i) => {
       const s = structuredClone(slotProto),
@@ -979,65 +979,6 @@
     commit();
   }
   byId("swap").onclick = swapSlotTypes;
-
-  function invertGroup() {
-    const { targets, scoped } = iconTargets();
-    if (!scoped || !targets.length) {
-      alert("Select a group (or slots) to invert first.");
-      return;
-    }
-    pushHistory();
-    const toSet = new Set(targets.map((n) => n.data)),
-
-      used = new Set(
-        collectWidgets()
-          .filter((n) => !toSet.has(n.data))
-          .map((n) => getChild(n.data, "id")?.value)
-          .filter(Boolean),
-      ),
-
-      swapKeys = (d, a, b) => {
-        const ta = getChild(d, a),
-          tb = getChild(d, b);
-        if (ta && tb) [ta.value, tb.value] = [tb.value, ta.value];
-      },
-      flipOverlay = (s) =>
-        /in_slot_overlay/.test(s)
-          ? s.replace("in_slot_overlay", "out_slot_overlay")
-          : /out_slot_overlay/.test(s)
-            ? s.replace("out_slot_overlay", "in_slot_overlay")
-            : s;
-    targets.forEach((n) => {
-      const d = n.data;
-
-      const idTag = getChild(d, "id"),
-        m = /^(item|fluid)_(in|out)_(\d+)$/.exec(idTag?.value || "");
-      if (m) {
-        const base = `${m[1]}_${m[2] === "in" ? "out" : "in"}_`;
-        let i = +m[3];
-        while (used.has(base + i)) i++;
-        idTag.value = base + i;
-        used.add(idTag.value);
-      } else if (idTag?.value) used.add(idTag.value);
-
-      swapKeys(d, "canPutItems", "canTakeItems");
-      swapKeys(d, "allowClickFilled", "allowClickDrained");
-
-      const bg = getChild(d, "backgroundTexture");
-      if (bg && getChild(bg, "type")?.value === "group_texture")
-        (getChild(getChild(bg, "data"), "textures")?.value || []).forEach(
-          (t) => {
-            const loc = getChild(
-              getChild(getChild(t, "p"), "data"),
-              "imageLocation",
-            );
-            if (loc) loc.value = flipOverlay(loc.value);
-          },
-        );
-    });
-    commit();
-  }
-  byId("invgrp").onclick = invertGroup;
   const PROG_TEXTURES = TEXTURES.filter((t) => t.includes("progress_bar"));
   const DIRECTIONS = [
     "LEFT_TO_RIGHT",
@@ -1173,10 +1114,10 @@
     .querySelectorAll("[data-rot]")
     .forEach(
       (b) =>
-      (b.onclick = () => (
-        (pm("#progRot").value = b.dataset.rot),
-        setRotation(+b.dataset.rot)
-      )),
+        (b.onclick = () => (
+          (pm("#progRot").value = b.dataset.rot),
+          setRotation(+b.dataset.rot)
+        )),
     );
   const applyEmptyFromForm = () => {
     syncEmptyWrap();
@@ -1533,7 +1474,7 @@
       v === undefined
         ? (v = localStorage.getItem(k))
         : localStorage.setItem(k, v);
-    } catch (e) { }
+    } catch (e) {}
     return v;
   };
   const setPaneWidth = (el, w) => {
