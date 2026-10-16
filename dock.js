@@ -10,9 +10,8 @@
     Object.assign(open, JSON.parse(localStorage.getItem(KEY) || "{}"));
   } catch (e) {}
 
-  const GAP = 12; // px between a drawer and the window edge
+  const GAP = 12; 
   function sync() {
-    // free-space offsets used by the stage, toolbar and the bottom drawer
     const l = open.vis ? drawers.vis.el.offsetWidth + GAP * 2 : GAP,
       b = open.src ? drawers.src.el.offsetHeight + GAP * 2 : GAP;
     split.style.setProperty("--dock-l", l + "px");
