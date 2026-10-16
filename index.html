@@ -15,6 +15,7 @@
 </head>
 
 <body>
+
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">
         <defs>
             <symbol id="i-logo" viewBox="0 0 24 24">
@@ -131,6 +132,14 @@
                     fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
                     stroke-linejoin="round" />
             </symbol>
+            <symbol id="i-close" viewBox="0 0 24 24">
+                <path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9"
+                    stroke-linecap="round" />
+            </symbol>
+            <symbol id="i-layers" viewBox="0 0 24 24">
+                <path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5m-18 4 9 5 9-5" fill="none" stroke="currentColor"
+                    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+            </symbol>
             <symbol id="i-up" viewBox="0 0 24 24">
                 <path d="m6 14 6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
                     stroke-linejoin="round" />
@@ -197,16 +206,20 @@
     </section>
 
     <section id="s2" hidden>
-        <!-- document bar -->
         <div class="bar docfields">
             <label class="fld">Name <span class="field-row"><input id="name" size="16"><span
                         class="suffix">.rtui</span></span></label>
             <label class="fld">Recipe type <input id="type" list="types" size="22"></label>
+            <label class="fld" title="Slot widget names differ between GregTech Modern versions">Target GTM <select
+                    id="ver">
+                    <option value="modern">7.x+ (gtm_)</option>
+                    <option value="legacy">1.x–6.x · 1.4.4 (plain)</option>
+                </select></label>
             <span id="path" class="muted path"></span>
             <span class="spacer"></span>
-            <button id="fix" title="Add the gtm_ prefix to pre-7.0.0 widget types"><svg class="ico">
+            <button id="fix" title="Rename slot widget types to match the selected Target GTM version"><svg class="ico">
                     <use href="#i-wrench" />
-                </svg>Fix legacy names</button>
+                </svg>Convert slot names</button>
             <button id="back"><svg class="ico">
                     <use href="#i-back" />
                 </svg>New / open</button>
@@ -215,80 +228,107 @@
                 </svg>Download .rtui</button>
         </div>
 
-        <div class="split">
-            <div class="top">
-                <div class="vis">
-                    <div class="ph"><span>Widgets</span></div>
-                    <div class="bar tools">
-                        <select id="proto" title="Widget type to add"></select>
-                        <button id="add" class="pri"><svg class="ico">
-                                <use href="#i-plus" />
-                            </svg>Add</button>
+        <div class="workbench">
+            <nav class="rail" aria-label="Panels">
+                <button id="dockVis" class="rail-btn on" data-tip="Widgets &amp; properties  (Alt+1)"
+                    aria-label="Widgets and properties"><svg class="ico">
+                        <use href="#i-layers" />
+                    </svg></button>
+                <button id="dockSrc" class="rail-btn" data-tip="SNBT source  (Alt+2)" aria-label="SNBT source"><svg
+                        class="ico">
+                        <use href="#i-code" />
+                    </svg></button>
+            </nav>
+
+            <div class="split">
+                <div class="top">
+                    <div class="vis">
+                        <div class="ph"><span><svg class="ico">
+                                    <use href="#i-layers" />
+                                </svg>Widgets &amp; properties</span><button class="icon-btn" data-dock-close="vis"
+                                title="Close panel"><svg class="ico">
+                                    <use href="#i-close" />
+                                </svg></button></div>
+                        <div class="bar tools">
+                            <select id="proto" title="Widget type to add"></select>
+                            <button id="add" class="pri"><svg class="ico">
+                                    <use href="#i-plus" />
+                                </svg>Add</button>
+                        </div>
+                        <div class="bar tools tools-wrap">
+                            <button id="prog"
+                                title="Choose the progress bar texture, fill direction, rotation and empty bar"><svg
+                                    class="ico">
+                                    <use href="#i-bar" />
+                                </svg>Progress bar<svg class="ico chev">
+                                    <use href="#i-chev" />
+                                </svg></button>
+                            <button id="swap"
+                                title="Convert item slots to fluid slots and fluid slots to item slots (selected slots/groups, or all if nothing is selected)"><svg
+                                    class="ico">
+                                    <use href="#i-swap" />
+                                </svg>Swap item/fluid</button>
+                            <button id="shapes"
+                                title="Generate slots arranged as a circle, polygon, line, grid or frame"><svg
+                                    class="ico">
+                                    <use href="#i-shapes" />
+                                </svg>Shapes<svg class="ico chev">
+                                    <use href="#i-chev" />
+                                </svg></button>
+                            <button id="icons" title="Pick an overlay icon for the selected slots (or all slots)"><svg
+                                    class="ico">
+                                    <use href="#i-image" />
+                                </svg>Assign icons<svg class="ico chev">
+                                    <use href="#i-chev" />
+                                </svg></button>
+                            <label class="link btnlike"><input type="file" id="imp" accept=".rtui" multiple hidden><svg
+                                    class="ico">
+                                    <use href="#i-import" />
+                                </svg>Import widgets from .rtui</label>
+                        </div>
+                        <div id="tree"></div>
+                        <div class="ph ph-sub"><span>Properties</span></div>
+                        <div id="insp"></div><datalist id="texlist"></datalist>
                     </div>
-                    <div class="bar tools tools-wrap">
-                        <button id="prog"
-                            title="Choose the progress bar texture, fill direction, rotation and empty bar"><svg
-                                class="ico">
-                                <use href="#i-bar" />
-                            </svg>Progress bar<svg class="ico chev">
-                                <use href="#i-chev" />
-                            </svg></button>
-                        <button id="swap"
-                            title="Convert item slots to fluid slots and fluid slots to item slots (selected slots/groups, or all if nothing is selected)"><svg
-                                class="ico">
-                                <use href="#i-swap" />
-                            </svg>Swap item/fluid</button>
-                        <button id="shapes"
-                            title="Generate slots arranged as a circle, polygon, line, grid or frame"><svg class="ico">
-                                <use href="#i-shapes" />
-                            </svg>Shapes<svg class="ico chev">
-                                <use href="#i-chev" />
-                            </svg></button>
-                        <button id="icons" title="Pick an overlay icon for the selected slots (or all slots)"><svg
-                                class="ico">
-                                <use href="#i-image" />
-                            </svg>Assign icons<svg class="ico chev">
-                                <use href="#i-chev" />
-                            </svg></button>
-                        <label class="link btnlike"><input type="file" id="imp" accept=".rtui" multiple hidden><svg
-                                class="ico">
-                                <use href="#i-import" />
-                            </svg>Import widgets from .rtui</label>
+
+                    <div class="right">
+                        <div class="floatbar">
+                            <div class="bar viewbar">
+                                <label class="fld">Zoom <select id="zoom">
+                                        <option>2
+                                        <option selected>3
+                                        <option>4
+                                        <option>6
+                                    </select></label>
+                                <label class="chk"><input type="checkbox" id="ids"> IDs</label>
+                                <label class="chk"><input type="checkbox" id="anim" checked> Animate</label>
+                            </div>
+                        </div>
+                        <div class="stage">
+                            <div class="cv"><canvas id="cv"></canvas></div>
+                        </div>
+                        <ul id="probs"></ul>
                     </div>
-                    <div id="tree"></div>
-                    <div class="ph ph-sub"><span>Properties</span></div>
-                    <div id="insp"></div><datalist id="texlist"></datalist>
                 </div>
 
-                <div class="right">
-                    <div class="bar viewbar">
-                        <label class="fld">Zoom <select id="zoom">
-                                <option>2
-                                <option selected>3
-                                <option>4
-                                <option>6
-                            </select></label>
-                        <label class="chk"><input type="checkbox" id="ids"> IDs</label>
-                        <label class="chk"><input type="checkbox" id="anim" checked> Animate</label>
+                <div class="left closed">
+                    <div class="ph">
+                        <span><svg class="ico">
+                                <use href="#i-code" />
+                            </svg>SNBT source</span>
+                        <div class="ph-end">
+                            <div class="seg">
+                                <button id="tRoot" class="tab on">root</button><button id="tRes"
+                                    class="tab">resources</button>
+                            </div>
+                            <button class="icon-btn" data-dock-close="src" title="Close panel"><svg class="ico">
+                                    <use href="#i-close" />
+                                </svg></button>
+                        </div>
                     </div>
-                    <div class="stage">
-                        <div class="cv"><canvas id="cv"></canvas></div>
-                    </div>
-                    <ul id="probs"></ul>
+                    <textarea id="ed" spellcheck="false"></textarea>
+                    <div id="perr" class="bad"></div>
                 </div>
-            </div>
-
-            <div class="left">
-                <div class="ph">
-                    <span><svg class="ico">
-                            <use href="#i-code" />
-                        </svg>SNBT source</span>
-                    <div class="seg">
-                        <button id="tRoot" class="tab on">root</button><button id="tRes" class="tab">resources</button>
-                    </div>
-                </div>
-                <textarea id="ed" spellcheck="false"></textarea>
-                <div id="perr" class="bad"></div>
             </div>
         </div>
     </section>
@@ -298,6 +338,7 @@
     <script src="app.js"></script>
     <script src="textures.js"></script>
     <script src="editor.js"></script>
+    <script src="dock.js"></script>
 </body>
 
 </html>

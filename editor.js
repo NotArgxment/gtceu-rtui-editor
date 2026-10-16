@@ -138,7 +138,19 @@
       const el = document.createElement("div");
       const type = n.wrap ? getChild(n.wrap, "type")?.value : "root",
         id = getChild(n.data, "id")?.value || "";
-      el.textContent = "· ".repeat(n.depth) + type + (id ? "  #" + id : "");
+      // Presentational only: indentation via padding, type/id as separate spans
+      el.style.paddingLeft = 10 + n.depth * 14 + "px";
+      el.title = type + (id ? " #" + id : "");
+      const tSpan = document.createElement("span");
+      tSpan.className = "t-type";
+      tSpan.textContent = type;
+      el.appendChild(tSpan);
+      if (id) {
+        const iSpan = document.createElement("span");
+        iSpan.className = "t-id";
+        iSpan.textContent = "#" + id;
+        el.appendChild(iSpan);
+      }
       if (editor.selection.has(n.data)) el.className = "sel";
       el.onclick = (e) => {
         if (e.shiftKey || e.ctrlKey || e.metaKey)
@@ -155,7 +167,9 @@
   function addField(box, label, value, onset, kind = "text", list) {
     const l = document.createElement("label"),
       i = document.createElement("input");
-    l.textContent = label;
+    const caption = document.createElement("span");
+    caption.textContent = label;
+    l.appendChild(caption);
     if (kind === "checkbox") {
       i.type = "checkbox";
       i.checked = !!value;
@@ -196,6 +210,7 @@
     list.forEach(([t, f]) => {
       const b = document.createElement("button");
       b.textContent = t;
+      if (t === "Delete") b.className = "danger";
       b.onclick = f;
       bar.appendChild(b);
     });
@@ -204,10 +219,12 @@
   function renderInspector() {
     const box = byId("insp");
     box.innerHTML = "";
+    box.className = "";
     const l = selectedWidgets();
     if (!l.length) {
       box.textContent =
         "Click a widget in the preview or the tree. Shift/Ctrl+click to multi-select, drag on empty space to box-select.";
+      box.className = "empty";
       return;
     }
     if (l.length > 1) {
@@ -261,12 +278,12 @@
           k,
           tag.value,
           (v) =>
-            (tag.value =
-              tag.kind === TAG.LONG
-                ? BigInt(Math.round(v))
-                : [TAG.FLOAT, TAG.DOUBLE].includes(tag.kind)
-                  ? v
-                  : Math.round(v)),
+          (tag.value =
+            tag.kind === TAG.LONG
+              ? BigInt(Math.round(v))
+              : [TAG.FLOAT, TAG.DOUBLE].includes(tag.kind)
+                ? v
+                : Math.round(v)),
           "number",
         );
       else if (tag.kind === TAG.STRING)
@@ -393,9 +410,9 @@
   }
 
   const fillPaletteOptions = () =>
-    (byId("proto").innerHTML = [...editor.palette.keys()]
-      .map((t) => `<option>${t}</option>`)
-      .join(""));
+  (byId("proto").innerHTML = [...editor.palette.keys()]
+    .map((t) => `<option>${t}</option>`)
+    .join(""));
   async function loadPaletteFrom(u8) {
     if (u8[0] === 0x1f && u8[1] === 0x8b)
       u8 = new Uint8Array(
@@ -431,7 +448,7 @@
   const isOverlayEntry = (e) =>
     /\/overlay\//.test(
       getChild(getChild(getChild(e, "p"), "data"), "imageLocation")?.value ||
-        "",
+      "",
     );
   const makeIconEntry = (loc) =>
     fromSnbt(
@@ -734,7 +751,7 @@
     const ch =
       getChild(gd, "children") ||
       (gd.value.set("children", { kind: TAG.LIST, value: [] }),
-      getChild(gd, "children"));
+        getChild(gd, "children"));
     ch.value = [];
     L.slots.forEach(([x, y], i) => {
       const s = structuredClone(slotProto),
@@ -1114,10 +1131,10 @@
     .querySelectorAll("[data-rot]")
     .forEach(
       (b) =>
-        (b.onclick = () => (
-          (pm("#progRot").value = b.dataset.rot),
-          setRotation(+b.dataset.rot)
-        )),
+      (b.onclick = () => (
+        (pm("#progRot").value = b.dataset.rot),
+        setRotation(+b.dataset.rot)
+      )),
     );
   const applyEmptyFromForm = () => {
     syncEmptyWrap();
@@ -1474,7 +1491,7 @@
       v === undefined
         ? (v = localStorage.getItem(k))
         : localStorage.setItem(k, v);
-    } catch (e) {}
+    } catch (e) { }
     return v;
   };
   const setPaneWidth = (el, w) => {
@@ -1499,7 +1516,8 @@
     if (saved) applySize(+saved);
     const gutter = document.createElement("div");
     gutter.className = className;
-    placeAfter ? reference.after(gutter) : reference.before(gutter);
+    // Handles are children of their drawer (absolutely positioned on its edge)
+    placeAfter ? reference.append(gutter) : reference.prepend(gutter);
     gutter.onpointerdown = (e) => {
       gutter.setPointerCapture(e.pointerId);
       const start = readSize(),
@@ -1534,28 +1552,31 @@
 
   const actionBar = document.createElement("div");
   actionBar.className = "bar actions";
-  const addAction = (label, handler) => {
+  const addAction = (label, handler, icon) => {
     const button = document.createElement("button");
-    button.textContent = label;
+    button.title = label;
+    button.innerHTML =
+      (icon ? `<svg class="ico"><use href="#i-${icon}"/></svg>` : "") +
+      `<span class="lbl">${label}</span>`;
     button.onclick = () => handler(button);
     actionBar.appendChild(button);
   };
-  addAction("↶ Undo", undoLast);
-  addAction("↷ Redo", redoLast);
-  addAction("Copy", copy);
-  addAction("Cut", cut);
-  addAction("Paste", paste);
-  addAction("Duplicate", duplicateSelection);
-  addAction("Delete", deleteSelection);
-  addAction("Select all", selectAllWidgets);
+  addAction("Undo", undoLast, "undo");
+  addAction("Redo", redoLast, "redo");
+  addAction("Copy", copy, "copy");
+  addAction("Cut", cut, "cut");
+  addAction("Paste", paste, "paste");
+  addAction("Duplicate", duplicateSelection, "dup");
+  addAction("Delete", deleteSelection, "trash");
+  addAction("Select all", selectAllWidgets, "all");
   addAction("Multi-select", (button) => {
     editor.multiSelect = !editor.multiSelect;
     button.classList.toggle("on", editor.multiSelect);
-  });
+  }, "multi");
   addAction("Pan", (button) => {
     editor.panMode = !editor.panMode;
     button.classList.toggle("on", editor.panMode);
-  });
+  }, "pan");
 
   const rightBar = document.querySelector(".right .bar");
   rightBar.after(actionBar);
