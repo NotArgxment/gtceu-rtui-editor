@@ -138,7 +138,7 @@
       const el = document.createElement("div");
       const type = n.wrap ? getChild(n.wrap, "type")?.value : "root",
         id = getChild(n.data, "id")?.value || "";
-      // Presentational only: indentation via padding, type/id as separate spans
+
       el.style.paddingLeft = 10 + n.depth * 14 + "px";
       el.title = type + (id ? " #" + id : "");
       const tSpan = document.createElement("span");
@@ -420,10 +420,12 @@
           new Blob([u8]).stream().pipeThrough(new DecompressionStream("gzip")),
         ).arrayBuffer(),
       );
+    const added = [];
     const rec = (d) =>
       (getChild(d, "children")?.value || []).forEach((w) => {
         const t = getChild(w, "type")?.value;
         if (t && !editor.palette.has(t)) {
+          added.push(t);
           const c = structuredClone(w),
             ch = getChild(getChild(c, "data"), "children");
           if (ch) ch.value = [];
@@ -433,6 +435,7 @@
       });
     rec(getChild(readNbt(u8).tag, "root"));
     fillPaletteOptions();
+    return added;
   }
   byId("add").onclick = () => {
     const p = editor.palette.get(byId("proto").value);
@@ -443,7 +446,6 @@
     addWidget(structuredClone(p), host);
     commit();
   };
-  // Slot icons are not baked into new slots: the "Assign icons" menu applies a chosen overlay on demand.
   const ICON_PREFIX = "gtceu:textures/gui/overlay/";
   const isOverlayEntry = (e) =>
     /\/overlay\//.test(
@@ -456,7 +458,7 @@
     );
   const isSlotNode = (n) =>
     n.wrap && /(item|fluid)_slot$/.test(getChild(n.wrap, "type")?.value || "");
-  // Slots the menu applies to: slots inside the current selection (a selected group counts), else every slot.
+
   function iconTargets() {
     const all = collectWidgets(),
       by = new Map(all.map((n) => [n.data, n])),
@@ -468,7 +470,7 @@
     });
     return { slots, targets: sel.length ? sel : slots, scoped: sel.length > 0 };
   }
-  // loc === null removes the overlay; otherwise replaces any existing overlay (or adds one).
+
   function assignSlotIcon(loc) {
     const { targets } = iconTargets();
     if (!targets.length) return;
@@ -580,7 +582,7 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !iconMenu.hidden) closeIconMenu();
   });
-  // ---- Shapes: generate a group of item/fluid slots laid out as a circle, polygon, line, grid or frame ----
+
   const SLOT = 18;
   const shapeCfg = {
     shape: "circle",
@@ -600,7 +602,7 @@
     gap: 0,
     grow: true,
   };
-  // Angles are in degrees, 0 = top, clockwise. Returns slot centres (floats, origin = shape centre).
+
   function shapeCenters(c) {
     const n = Math.max(1, Math.round(c.count)),
       step = SLOT + c.gap,
@@ -650,7 +652,7 @@
           )
             pts.push([k * step, r * step]);
       if (c.shape === "frame") {
-        // clockwise from top-left
+
         const at = (k, r) =>
           pts.find((p) => p[0] === k * step && p[1] === r * step);
         const o = [];
@@ -663,7 +665,7 @@
     }
     return pts;
   }
-  // Integer top-left slot positions (origin = group top-left, 3px padding) and group size.
+
   function shapeLayout(c) {
     const ctr = shapeCenters(c);
     if (!ctr.length) return { slots: [], w: 0, h: 0, overlaps: 0 };
@@ -688,7 +690,7 @@
           overlaps++;
     return { slots, w, h, overlaps };
   }
-  // Smallest radius (keeping the X:Y ratio for circles) with no overlapping slots.
+
   function autoRadius(c) {
     const t = { ...c };
     if (c.shape === "circle") {
@@ -762,7 +764,7 @@
       ch.value.push(s);
     });
     if (c.grow) {
-      // make the container big enough for the new group
+
       if (hw < gx + L.w) setIntChild(hsz, "width", gx + L.w);
       if (hh < gy + L.h) setIntChild(hsz, "height", gy + L.h);
     }
@@ -925,7 +927,7 @@
   });
   const baseIconsClick = byId("icons").onclick;
   byId("icons").onclick = (e) => (closeShapeMenu(), baseIconsClick(e));
-  // ---- Swap item <-> fluid slots (selected slots / groups, or every slot when nothing is selected) ----
+
   const ITEM_ONLY = ["canPutItems", "canTakeItems"],
     FLUID_ONLY = [
       "showAmount",
@@ -947,7 +949,7 @@
           .map((n) => getChild(n.data, "id")?.value)
           .filter(Boolean),
       );
-    // sort so renumbering (only needed on id collisions) is deterministic: keep original order
+
     targets.forEach((n) => {
       const toFluid = getChild(n.wrap, "type").value.endsWith("item_slot"),
         prefixOld = getChild(n.wrap, "type").value.replace(
@@ -966,7 +968,7 @@
           const pv = getChild(getChild(proto, "data"), k);
           if (pv && !d.value.has(k)) d.value.set(k, structuredClone(pv));
         });
-      // base texture slot.png <-> fluid_slot.png (overlays are kept)
+
       const bg = getChild(d, "backgroundTexture");
       if (bg && getChild(bg, "type")?.value === "group_texture")
         (getChild(getChild(bg, "data"), "textures")?.value || []).forEach(
@@ -982,7 +984,7 @@
               );
           },
         );
-      // id: item_out_3 <-> fluid_out_3 (renumbered if that id is already taken)
+
       const idTag = getChild(d, "id"),
         m = /^(item|fluid)_(in|out)_(\d+)$/.exec(idTag?.value || "");
       if (m) {
@@ -1201,10 +1203,29 @@
     baseShapesClick = byId("shapes").onclick;
   byId("icons").onclick = (e) => (closeProgMenu(), baseIconsClick2(e));
   byId("shapes").onclick = (e) => (closeProgMenu(), baseShapesClick(e));
+  function toast(msg) {
+    let t = byId("toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "toast";
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove("show"), 5000);
+  }
   byId("imp").onchange = async (e) => {
+    const added = [];
     for (const f of e.target.files)
-      await loadPaletteFrom(new Uint8Array(await f.arrayBuffer()));
+      added.push(...(await loadPaletteFrom(new Uint8Array(await f.arrayBuffer()))));
     e.target.value = "";
+    if (added.length) byId("proto").value = added[0];
+    toast(
+      added.length
+        ? `Added ${added.length} widget type(s) to the dropdown: ${added.join(", ")}. Pick one and press Add.`
+        : "Nothing new: every widget type in that file is already in the dropdown.",
+    );
   };
   loadPaletteFrom(Uint8Array.from(atob(TEMPLATE_B64), (c) => c.charCodeAt(0)));
   byId("texlist").innerHTML = TEXTURES.map((t) => `<option value="${t}">`).join(
@@ -1516,7 +1537,6 @@
     if (saved) applySize(+saved);
     const gutter = document.createElement("div");
     gutter.className = className;
-    // Handles are children of their drawer (absolutely positioned on its edge)
     placeAfter ? reference.append(gutter) : reference.prepend(gutter);
     gutter.onpointerdown = (e) => {
       gutter.setPointerCapture(e.pointerId);

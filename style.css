@@ -59,7 +59,6 @@ body {
     display: none !important;
 }
 
-
 .ico {
     width: 15px;
     height: 15px;
@@ -1162,7 +1161,6 @@ textarea:focus {
     color: var(--muted);
 }
 
-/* shapes popover */
 #shapeMenu .sm-body {
     display: flex;
     flex-wrap: wrap;
@@ -1411,4 +1409,28 @@ textarea:focus {
     textarea {
         font-size: 13px;
     }
+}
+
+#toast {
+    position: fixed;
+    z-index: 2000;
+    left: 50%;
+    bottom: 24px;
+    max-width: min(560px, calc(100vw - 24px));
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 12.5px;
+    background: var(--panel-3);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    box-shadow: var(--shadow-pop);
+    opacity: 0;
+    transform: translate(-50%, 10px);
+    pointer-events: none;
+    transition: opacity 0.18s, transform 0.18s;
+}
+
+#toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
 }
