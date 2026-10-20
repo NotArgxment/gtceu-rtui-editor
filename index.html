@@ -1,344 +1,586 @@
 <!doctype html>
 <html lang="en">
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="dark">
-    <title>RTUI Editor — GregTech Modern</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-</head>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="dark">
+        <title>RTUI Editor — GregTech Modern</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+            rel="stylesheet"
+        >
+        <link rel="stylesheet" href="style.css">
+    </head>
 
-<body>
+    <body>
 
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-        <defs>
-            <symbol id="i-logo" viewBox="0 0 24 24">
-                <rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="none" stroke="currentColor"
-                    stroke-width="1.8" />
-                <rect x="6.5" y="6.5" width="5" height="5" rx="1.2" fill="currentColor" />
-                <rect x="13" y="6.5" width="4.5" height="2.5" rx="1" fill="currentColor" opacity=".55" />
-                <rect x="13" y="11" width="4.5" height="6.5" rx="1" fill="currentColor" opacity=".55" />
-                <rect x="6.5" y="13" width="5" height="4.5" rx="1.2" fill="currentColor" opacity=".55" />
-            </symbol>
-            <symbol id="i-upload" viewBox="0 0 24 24">
-                <path d="M12 16V4m0 0L7 9m5-5 5 5M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none"
-                    stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-download" viewBox="0 0 24 24">
-                <path d="M12 4v12m0 0 5-5m-5 5-5-5M4 18v.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V18" fill="none"
-                    stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-plus" viewBox="0 0 24 24">
-                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9"
-                    stroke-linecap="round" />
-            </symbol>
-            <symbol id="i-back" viewBox="0 0 24 24">
-                <path d="M10 6 4 12l6 6M4 12h16" fill="none" stroke="currentColor" stroke-width="1.7"
-                    stroke-linecap="round" stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-wrench" viewBox="0 0 24 24">
-                <path
-                    d="M14.5 6.5a4 4 0 0 0 4.9 4.9l-1.4-1.4-2 .3-.3-2 1.4-1.4A4 4 0 0 0 14.5 6.5ZM14 11l-9 9a1.4 1.4 0 0 1-2-2l9-9"
-                    fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
-                    stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-swap" viewBox="0 0 24 24">
-                <path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4m4 4H7" fill="none" stroke="currentColor" stroke-width="1.7"
-                    stroke-linecap="round" stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-shapes" viewBox="0 0 24 24">
-                <circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.7" />
-                <rect x="12" y="12" width="8.5" height="8.5" rx="1.5" fill="none" stroke="currentColor"
-                    stroke-width="1.7" />
-            </symbol>
-            <symbol id="i-image" viewBox="0 0 24 24">
-                <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor"
-                    stroke-width="1.7" />
-                <circle cx="9" cy="10" r="1.6" fill="currentColor" />
-                <path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-bar" viewBox="0 0 24 24">
-                <rect x="3" y="9" width="18" height="6" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" />
-                <rect x="5" y="11" width="7" height="2" rx="1" fill="currentColor" />
-            </symbol>
-            <symbol id="i-import" viewBox="0 0 24 24">
-                <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" fill="none"
-                    stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-chev" viewBox="0 0 24 24">
-                <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
-                    stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-code" viewBox="0 0 24 24">
-                <path d="m8 7-5 5 5 5m8-10 5 5-5 5M14 5l-4 14" fill="none" stroke="currentColor" stroke-width="1.7"
-                    stroke-linecap="round" stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-undo" viewBox="0 0 24 24">
-                <path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="1.7"
-                    stroke-linecap="round" stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-redo" viewBox="0 0 24 24">
-                <path d="m15 14 5-5-5-5m5 5H10a6 6 0 0 0 0 12h3" fill="none" stroke="currentColor" stroke-width="1.7"
-                    stroke-linecap="round" stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-copy" viewBox="0 0 24 24">
-                <rect x="8.5" y="8.5" width="11" height="11" rx="2" fill="none" stroke="currentColor"
-                    stroke-width="1.7" />
-                <path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2" fill="none"
-                    stroke="currentColor" stroke-width="1.7" />
-            </symbol>
-            <symbol id="i-cut" viewBox="0 0 24 24">
-                <circle cx="6.5" cy="17.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7" />
-                <circle cx="6.5" cy="6.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7" />
-                <path d="m8.3 8.3 11.2 9.7M8.3 15.7 19.5 6" fill="none" stroke="currentColor" stroke-width="1.7"
-                    stroke-linecap="round" />
-            </symbol>
-            <symbol id="i-paste" viewBox="0 0 24 24">
-                <rect x="5" y="5" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" />
-                <rect x="9" y="3" width="6" height="4" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.7" />
-            </symbol>
-            <symbol id="i-dup" viewBox="0 0 24 24">
-                <rect x="3.5" y="3.5" width="12" height="12" rx="2" fill="none" stroke="currentColor"
-                    stroke-width="1.7" />
-                <path d="M9 20.5h9a2.5 2.5 0 0 0 2.5-2.5V9" fill="none" stroke="currentColor" stroke-width="1.7"
-                    stroke-linecap="round" />
-            </symbol>
-            <symbol id="i-trash" viewBox="0 0 24 24">
-                <path d="M4 7h16M10 11v6m4-6v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" fill="none"
-                    stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-all" viewBox="0 0 24 24">
-                <rect x="4" y="4" width="16" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"
-                    stroke-dasharray="3 2.5" />
-                <path d="m8.5 12 2.5 2.5L16 9.5" fill="none" stroke="currentColor" stroke-width="1.8"
-                    stroke-linecap="round" stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-multi" viewBox="0 0 24 24">
-                <rect x="3.5" y="3.5" width="10" height="10" rx="2" fill="none" stroke="currentColor"
-                    stroke-width="1.7" />
-                <rect x="10.5" y="10.5" width="10" height="10" rx="2" fill="none" stroke="currentColor"
-                    stroke-width="1.7" />
-            </symbol>
-            <symbol id="i-pan" viewBox="0 0 24 24">
-                <path
-                    d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11m0-1.5a1.5 1.5 0 0 1 3 0V11m0-.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7L4 14.5a1.5 1.5 0 0 1 2.4-1.7L9 15"
-                    fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
-                    stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-close" viewBox="0 0 24 24">
-                <path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9"
-                    stroke-linecap="round" />
-            </symbol>
-            <symbol id="i-layers" viewBox="0 0 24 24">
-                <path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5m-18 4 9 5 9-5" fill="none" stroke="currentColor"
-                    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-up" viewBox="0 0 24 24">
-                <path d="m6 14 6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
-                    stroke-linejoin="round" />
-            </symbol>
-            <symbol id="i-down" viewBox="0 0 24 24">
-                <path d="m6 10 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
-                    stroke-linejoin="round" />
-            </symbol>
-        </defs>
-    </svg>
+        <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+            <defs>
+                <symbol id="i-logo" viewBox="0 0 24 24">
+                    <rect
+                        x="2.5"
+                        y="2.5"
+                        width="19"
+                        height="19"
+                        rx="5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                    />
+                    <rect x="6.5" y="6.5" width="5" height="5" rx="1.2" fill="currentColor"/>
+                    <rect x="13" y="6.5" width="4.5" height="2.5" rx="1" fill="currentColor" opacity=".55"/>
+                    <rect x="13" y="11" width="4.5" height="6.5" rx="1" fill="currentColor" opacity=".55"/>
+                    <rect x="6.5" y="13" width="5" height="4.5" rx="1.2" fill="currentColor" opacity=".55"/>
+                </symbol>
+                <symbol id="i-upload" viewBox="0 0 24 24">
+                    <path
+                        d="M12 16V4m0 0L7 9m5-5 5 5M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-download" viewBox="0 0 24 24">
+                    <path
+                        d="M12 4v12m0 0 5-5m-5 5-5-5M4 18v.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V18"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-plus" viewBox="0 0 24 24">
+                    <path
+                        d="M12 5v14M5 12h14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.9"
+                        stroke-linecap="round"
+                    />
+                </symbol>
+                <symbol id="i-back" viewBox="0 0 24 24">
+                    <path
+                        d="M10 6 4 12l6 6M4 12h16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-wrench" viewBox="0 0 24 24">
+                    <path
+                        d="M14.5 6.5a4 4 0 0 0 4.9 4.9l-1.4-1.4-2 .3-.3-2 1.4-1.4A4 4 0 0 0 14.5 6.5ZM14 11l-9 9a1.4 1.4 0 0 1-2-2l9-9"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-swap" viewBox="0 0 24 24">
+                    <path
+                        d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4m4 4H7"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-shapes" viewBox="0 0 24 24">
+                    <circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                    <rect
+                        x="12"
+                        y="12"
+                        width="8.5"
+                        height="8.5"
+                        rx="1.5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                    />
+                </symbol>
+                <symbol id="i-image" viewBox="0 0 24 24">
+                    <rect
+                        x="3.5"
+                        y="4.5"
+                        width="17"
+                        height="15"
+                        rx="2.5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                    />
+                    <circle cx="9" cy="10" r="1.6" fill="currentColor"/>
+                    <path
+                        d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-bar" viewBox="0 0 24 24">
+                    <rect x="3" y="9" width="18" height="6" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                    <rect x="5" y="11" width="7" height="2" rx="1" fill="currentColor"/>
+                </symbol>
+                <symbol id="i-import" viewBox="0 0 24 24">
+                    <path
+                        d="M12 3v11m0 0 4-4m-4 4-4-4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-chev" viewBox="0 0 24 24">
+                    <path
+                        d="m6 9 6 6 6-6"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.9"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-code" viewBox="0 0 24 24">
+                    <path
+                        d="m8 7-5 5 5 5m8-10 5 5-5 5M14 5l-4 14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-undo" viewBox="0 0 24 24">
+                    <path
+                        d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-redo" viewBox="0 0 24 24">
+                    <path
+                        d="m15 14 5-5-5-5m5 5H10a6 6 0 0 0 0 12h3"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-copy" viewBox="0 0 24 24">
+                    <rect
+                        x="8.5"
+                        y="8.5"
+                        width="11"
+                        height="11"
+                        rx="2"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                    />
+                    <path
+                        d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                    />
+                </symbol>
+                <symbol id="i-cut" viewBox="0 0 24 24">
+                    <circle cx="6.5" cy="17.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                    <circle cx="6.5" cy="6.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                    <path
+                        d="m8.3 8.3 11.2 9.7M8.3 15.7 19.5 6"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                    />
+                </symbol>
+                <symbol id="i-paste" viewBox="0 0 24 24">
+                    <rect x="5" y="5" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                    <rect x="9" y="3" width="6" height="4" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                </symbol>
+                <symbol id="i-dup" viewBox="0 0 24 24">
+                    <rect
+                        x="3.5"
+                        y="3.5"
+                        width="12"
+                        height="12"
+                        rx="2"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                    />
+                    <path
+                        d="M9 20.5h9a2.5 2.5 0 0 0 2.5-2.5V9"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                    />
+                </symbol>
+                <symbol id="i-trash" viewBox="0 0 24 24">
+                    <path
+                        d="M4 7h16M10 11v6m4-6v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-all" viewBox="0 0 24 24">
+                    <rect
+                        x="4"
+                        y="4"
+                        width="16"
+                        height="16"
+                        rx="2.5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-dasharray="3 2.5"
+                    />
+                    <path
+                        d="m8.5 12 2.5 2.5L16 9.5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-multi" viewBox="0 0 24 24">
+                    <rect
+                        x="3.5"
+                        y="3.5"
+                        width="10"
+                        height="10"
+                        rx="2"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                    />
+                    <rect
+                        x="10.5"
+                        y="10.5"
+                        width="10"
+                        height="10"
+                        rx="2"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                    />
+                </symbol>
+                <symbol id="i-pan" viewBox="0 0 24 24">
+                    <path
+                        d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11m0-1.5a1.5 1.5 0 0 1 3 0V11m0-.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7L4 14.5a1.5 1.5 0 0 1 2.4-1.7L9 15"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-center" viewBox="0 0 24 24">
+                    <path
+                        d="M12 3v4m0 10v4M3 12h4m10 0h4"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                    />
+                    <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                </symbol>
+                <symbol id="i-fit" viewBox="0 0 24 24">
+                    <path
+                        d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                    <rect
+                        x="8.5"
+                        y="8.5"
+                        width="7"
+                        height="7"
+                        rx="1"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                    />
+                </symbol>
+                <symbol id="i-close" viewBox="0 0 24 24">
+                    <path
+                        d="m6 6 12 12M18 6 6 18"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.9"
+                        stroke-linecap="round"
+                    />
+                </symbol>
+                <symbol id="i-layers" viewBox="0 0 24 24">
+                    <path
+                        d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5m-18 4 9 5 9-5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-up" viewBox="0 0 24 24">
+                    <path
+                        d="m6 14 6-6 6 6"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.9"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+                <symbol id="i-down" viewBox="0 0 24 24">
+                    <path
+                        d="m6 10 6 6 6-6"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.9"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </symbol>
+            </defs>
+        </svg>
 
-    <header class="topbar">
-        <div class="brand">
-            <svg class="ico logo">
-                <use href="#i-logo" />
-            </svg>
-            <div class="brand-txt"><b>RTUI Editor</b><span class="muted">GregTech Modern · LDLib recipe type UI</span>
-            </div>
-        </div>
-        <div class="topbar-end"><span class="pill">100% local</span></div>
-    </header>
-
-    <section id="s1">
-        <div class="hero">
-            <h1>Design recipe type UIs, visually.</h1>
-            <p class="muted lead">Open an existing <code>.rtui</code> file or start from the GTCEu base template.
-                Nothing
-                is uploaded — everything runs in your browser.</p>
-        </div>
-
-        <div class="start-grid">
-            <div id="drop">
-                <svg class="ico big">
-                    <use href="#i-upload" />
+        <header class="topbar">
+            <div class="brand">
+                <svg class="ico logo">
+                    <use href="#i-logo"/>
                 </svg>
-                <div class="drop-title">Drop a <code>.rtui</code> file here</div>
-                <div class="muted">or <label class="link"><input type="file" id="file" hidden>browse your
-                        computer</label> · gzip supported</div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">Create a new UI</div>
-                <label class="field"><span class="field-l">1 · File name</span>
-                    <span class="field-row"><input id="nName" placeholder="lathe" autocomplete="off"><span
-                            class="suffix">.rtui</span></span></label>
-                <button id="n1" class="pri">Next</button>
-                <div id="step2" hidden>
-                    <label class="field"><span class="field-l">2 · Recipe type</span>
-                        <input id="nType" list="types" placeholder="gtceu:lathe" autocomplete="off"></label>
-                    <datalist id="types"></datalist>
-                    <button id="n2" class="pri">Create</button>
-                    <div class="muted" id="nHint"></div>
+                <div class="brand-txt"><b>RTUI Editor</b><span class="muted">GregTech Modern · LDLib recipe type UI</span>
                 </div>
             </div>
-        </div>
-        <div id="err1" class="bad"></div>
+            <div class="topbar-end"><span class="pill">100% local</span></div>
+        </header>
 
-        <ul class="features muted">
-            <li>Real GTCEu / LDLib textures</li>
-            <li>Drag, resize, multi-select, undo / redo</li>
-            <li>SNBT source view with live sync</li>
-            <li>Validation &amp; safe round-trip export</li>
-        </ul>
-    </section>
+        <section id="s1">
+            <div class="hero">
+                <h1>Design recipe type UIs, visually.</h1>
+                <p class="muted lead">Open an existing <code>.rtui</code> file or start from the GTCEu base template.
+                    Nothing
+                    is uploaded — everything runs in your browser.</p>
+            </div>
 
-    <section id="s2" hidden>
-        <div class="bar docfields">
-            <label class="fld">Name <span class="field-row"><input id="name" size="16"><span
-                        class="suffix">.rtui</span></span></label>
-            <label class="fld">Recipe type <input id="type" list="types" size="22"></label>
-            <label class="fld" title="Slot widget names differ between GregTech Modern versions">Target GTM <select
-                    id="ver">
-                    <option value="modern">7.x+ (gtm_)</option>
-                    <option value="legacy">1.x–6.x · 1.4.4 (plain)</option>
-                </select></label>
-            <span id="path" class="muted path"></span>
-            <span class="spacer"></span>
-            <button id="fix" title="Rename slot widget types to match the selected Target GTM version"><svg class="ico">
-                    <use href="#i-wrench" />
-                </svg>Convert slot names</button>
-            <button id="back"><svg class="ico">
-                    <use href="#i-back" />
-                </svg>New / open</button>
-            <button id="dl" class="pri"><svg class="ico">
-                    <use href="#i-download" />
-                </svg>Download .rtui</button>
-        </div>
+            <div class="start-grid">
+                <div id="drop">
+                    <svg class="ico big">
+                        <use href="#i-upload"/>
+                    </svg>
+                    <div class="drop-title">Drop a <code>.rtui</code> file here</div>
+                    <div class="muted">or <label class="link"><input type="file" id="file" hidden>browse your
+                            computer</label> · gzip supported</div>
+                </div>
 
-        <div class="workbench">
-            <nav class="rail" aria-label="Panels">
-                <button id="dockVis" class="rail-btn on" data-tip="Widgets &amp; properties  (Alt+1)"
-                    aria-label="Widgets and properties"><svg class="ico">
-                        <use href="#i-layers" />
-                    </svg></button>
-                <button id="dockSrc" class="rail-btn" data-tip="SNBT source  (Alt+2)" aria-label="SNBT source"><svg
-                        class="ico">
-                        <use href="#i-code" />
-                    </svg></button>
-            </nav>
+                <div class="card">
+                    <div class="card-title">Create a new UI</div>
+                    <label class="field"><span class="field-l">1 · File name</span>
+                        <span class="field-row"><input id="nName" placeholder="lathe" autocomplete="off"><span
+                                class="suffix"
+                            >.rtui</span></span></label>
+                    <button id="n1" class="pri">Next</button>
+                    <div id="step2" hidden>
+                        <label class="field"><span class="field-l">2 · Recipe type</span>
+                            <input id="nType" list="types" placeholder="gtceu:lathe" autocomplete="off"></label>
+                        <datalist id="types"></datalist>
+                        <button id="n2" class="pri">Create</button>
+                        <div class="muted" id="nHint"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="err1" class="bad"></div>
 
-            <div class="split">
-                <div class="top">
-                    <div class="vis">
-                        <div class="ph"><span><svg class="ico">
-                                    <use href="#i-layers" />
-                                </svg>Widgets &amp; properties</span><button class="icon-btn" data-dock-close="vis"
-                                title="Close panel"><svg class="ico">
-                                    <use href="#i-close" />
-                                </svg></button></div>
-                        <div class="bar tools">
-                            <select id="proto" title="Widget type to add"></select>
-                            <button id="add" class="pri"><svg class="ico">
-                                    <use href="#i-plus" />
-                                </svg>Add</button>
+            <ul class="features muted">
+                <li>Real GTCEu / LDLib textures</li>
+                <li>Drag, resize, multi-select, undo / redo</li>
+                <li>SNBT source view with live sync</li>
+                <li>Validation &amp; safe round-trip export</li>
+            </ul>
+        </section>
+
+        <section id="s2" hidden>
+            <div class="bar docfields">
+                <label class="fld">Name <span class="field-row"><input id="name" size="16"><span
+                            class="suffix"
+                        >.rtui</span></span></label>
+                <label class="fld">Recipe type <input id="type" list="types" size="22"></label>
+                <label class="fld" title="Slot widget names differ between GregTech Modern versions">Target GTM <select
+                        id="ver"
+                    >
+                        <option value="modern">7.x+ (gtm_)</option>
+                        <option value="legacy">1.x–6.x · 1.4.4 (plain)</option>
+                    </select></label>
+                <span id="path" class="muted path"></span>
+                <span class="spacer"></span>
+                <button id="fix" title="Rename slot widget types to match the selected Target GTM version"><svg class="ico">
+                        <use href="#i-wrench"/>
+                    </svg>Convert slot names</button>
+                <button id="back"><svg class="ico">
+                        <use href="#i-back"/>
+                    </svg>New / open</button>
+                <button id="dl" class="pri"><svg class="ico">
+                        <use href="#i-download"/>
+                    </svg>Download .rtui</button>
+            </div>
+
+            <div class="workbench">
+                <nav class="rail" aria-label="Panels">
+                    <button
+                        id="dockVis"
+                        class="rail-btn on"
+                        data-tip="Widgets &amp; properties  (Alt+1)"
+                        aria-label="Widgets and properties"
+                    ><svg class="ico">
+                            <use href="#i-layers"/>
+                        </svg></button>
+                    <button id="dockSrc" class="rail-btn" data-tip="SNBT source  (Alt+2)" aria-label="SNBT source"><svg
+                            class="ico"
+                        >
+                            <use href="#i-code"/>
+                        </svg></button>
+                </nav>
+
+                <div class="split">
+                    <div class="top">
+                        <div class="vis">
+                            <div class="ph"><span><svg class="ico">
+                                        <use href="#i-layers"/>
+                                    </svg>Widgets &amp; properties</span><button
+                                    class="icon-btn"
+                                    data-dock-close="vis"
+                                    title="Close panel"
+                                ><svg class="ico">
+                                        <use href="#i-close"/>
+                                    </svg></button></div>
+                            <div class="bar tools">
+                                <select id="proto" title="Widget type to add"></select>
+                                <button id="add" class="pri"><svg class="ico">
+                                        <use href="#i-plus"/>
+                                    </svg>Add</button>
+                            </div>
+                            <div class="bar tools tools-wrap">
+                                <button
+                                    id="prog"
+                                    title="Choose the progress bar texture, fill direction, rotation and empty bar"
+                                ><svg
+                                        class="ico"
+                                    >
+                                        <use href="#i-bar"/>
+                                    </svg>Progress bar<svg class="ico chev">
+                                        <use href="#i-chev"/>
+                                    </svg></button>
+                                <button
+                                    id="swap"
+                                    title="Convert item slots to fluid slots and fluid slots to item slots (selected slots/groups, or all if nothing is selected)"
+                                ><svg
+                                        class="ico"
+                                    >
+                                        <use href="#i-swap"/>
+                                    </svg>Swap item/fluid</button>
+                                <button
+                                    id="shapes"
+                                    title="Generate slots arranged as a circle, polygon, line, grid or frame"
+                                ><svg
+                                        class="ico"
+                                    >
+                                        <use href="#i-shapes"/>
+                                    </svg>Shapes<svg class="ico chev">
+                                        <use href="#i-chev"/>
+                                    </svg></button>
+                                <button id="icons" title="Pick an overlay icon for the selected slots (or all slots)"><svg
+                                        class="ico"
+                                    >
+                                        <use href="#i-image"/>
+                                    </svg>Assign icons<svg class="ico chev">
+                                        <use href="#i-chev"/>
+                                    </svg></button>
+                                <label class="link btnlike"><input type="file" id="imp" accept=".rtui" multiple hidden><svg
+                                        class="ico"
+                                    >
+                                        <use href="#i-import"/>
+                                    </svg>Import widgets from .rtui</label>
+                            </div>
+                            <div id="tree"></div>
+                            <div class="ph ph-sub"><span>Properties</span></div>
+                            <div id="insp"></div><datalist id="texlist"></datalist>
                         </div>
-                        <div class="bar tools tools-wrap">
-                            <button id="prog"
-                                title="Choose the progress bar texture, fill direction, rotation and empty bar"><svg
-                                    class="ico">
-                                    <use href="#i-bar" />
-                                </svg>Progress bar<svg class="ico chev">
-                                    <use href="#i-chev" />
-                                </svg></button>
-                            <button id="swap"
-                                title="Convert item slots to fluid slots and fluid slots to item slots (selected slots/groups, or all if nothing is selected)"><svg
-                                    class="ico">
-                                    <use href="#i-swap" />
-                                </svg>Swap item/fluid</button>
-                            <button id="shapes"
-                                title="Generate slots arranged as a circle, polygon, line, grid or frame"><svg
-                                    class="ico">
-                                    <use href="#i-shapes" />
-                                </svg>Shapes<svg class="ico chev">
-                                    <use href="#i-chev" />
-                                </svg></button>
-                            <button id="icons" title="Pick an overlay icon for the selected slots (or all slots)"><svg
-                                    class="ico">
-                                    <use href="#i-image" />
-                                </svg>Assign icons<svg class="ico chev">
-                                    <use href="#i-chev" />
-                                </svg></button>
-                            <label class="link btnlike"><input type="file" id="imp" accept=".rtui" multiple hidden><svg
-                                    class="ico">
-                                    <use href="#i-import" />
-                                </svg>Import widgets from .rtui</label>
+
+                        <div class="right">
+                            <div class="floatbar">
+                                <div class="bar viewbar">
+                                    <label class="fld">Zoom <select id="zoom">
+                                            <option>2
+                                                <option selected>3
+                                                    <option>4
+                                                        <option>6
+                                        </select></label>
+                                    <label class="chk"><input type="checkbox" id="ids"> IDs</label>
+                                    <label class="chk"><input type="checkbox" id="anim" checked> Animate</label>
+                                    <label class="chk" title="Outline input/output groups"><input type="checkbox" id="grp" checked> Groups</label>
+                                </div>
+                            </div>
+                            <div class="stage">
+                                <div class="cv"><canvas id="cv"></canvas></div>
+                            </div>
+                            <ul id="probs"></ul>
                         </div>
-                        <div id="tree"></div>
-                        <div class="ph ph-sub"><span>Properties</span></div>
-                        <div id="insp"></div><datalist id="texlist"></datalist>
                     </div>
 
-                    <div class="right">
-                        <div class="floatbar">
-                            <div class="bar viewbar">
-                                <label class="fld">Zoom <select id="zoom">
-                                        <option>2
-                                        <option selected>3
-                                        <option>4
-                                        <option>6
-                                    </select></label>
-                                <label class="chk"><input type="checkbox" id="ids"> IDs</label>
-                                <label class="chk"><input type="checkbox" id="anim" checked> Animate</label>
+                    <div class="left closed">
+                        <div class="ph">
+                            <span><svg class="ico">
+                                    <use href="#i-code"/>
+                                </svg>SNBT source</span>
+                            <div class="ph-end">
+                                <div class="seg">
+                                    <button id="tRoot" class="tab on">root</button><button
+                                        id="tRes"
+                                        class="tab"
+                                    >resources</button>
+                                </div>
+                                <button class="icon-btn" data-dock-close="src" title="Close panel"><svg class="ico">
+                                        <use href="#i-close"/>
+                                    </svg></button>
                             </div>
                         </div>
-                        <div class="stage">
-                            <div class="cv"><canvas id="cv"></canvas></div>
-                        </div>
-                        <ul id="probs"></ul>
+                        <textarea id="ed" spellcheck="false"></textarea>
+                        <div id="perr" class="bad"></div>
                     </div>
-                </div>
-
-                <div class="left closed">
-                    <div class="ph">
-                        <span><svg class="ico">
-                                <use href="#i-code" />
-                            </svg>SNBT source</span>
-                        <div class="ph-end">
-                            <div class="seg">
-                                <button id="tRoot" class="tab on">root</button><button id="tRes"
-                                    class="tab">resources</button>
-                            </div>
-                            <button class="icon-btn" data-dock-close="src" title="Close panel"><svg class="ico">
-                                    <use href="#i-close" />
-                                </svg></button>
-                        </div>
-                    </div>
-                    <textarea id="ed" spellcheck="false"></textarea>
-                    <div id="perr" class="bad"></div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <script src="nbt.js"></script>
-    <script src="template.js"></script>
-    <script src="app.js"></script>
-    <script src="textures.js"></script>
-    <script src="editor.js"></script>
-    <script src="dock.js"></script>
-</body>
+        <script src="nbt.js"></script>
+        <script src="template.js"></script>
+        <script src="app.js"></script>
+        <script src="textures.js"></script>
+        <script src="editor.js"></script>
+        <script src="dock.js"></script>
+    </body>
 
 </html>

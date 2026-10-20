@@ -113,6 +113,8 @@ byId("back").onclick = () => {
 };
 
 function openEditor() {
+    view.ox = null;
+    view.sx = null;
     byId("s1").hidden = true;
     byId("s2").hidden = false;
     byId("name").value = state.name;
@@ -281,6 +283,7 @@ function refreshEditor() {
         : '<li class="ok">✓ No problems found</li>';
 }
 
+const view = { ox: null, oy: null, z: null, sx: 0, sy: 0 };
 const previewCanvas = byId("cv"),
     previewCtx = previewCanvas.getContext("2d"),
     imageCache = new Map();
@@ -326,8 +329,8 @@ function drawTextureRaw(t, x, y, w, h, dep = 0, sub = null) {
         return r && dep < 8
             ? drawTexture(r, x, y, w, h, dep + 1)
             : t.key === "empty"
-              ? 0
-              : drawMissingMarker(x, y, w, h, "#f55");
+                ? 0
+                : drawMissingMarker(x, y, w, h, "#f55");
     }
     if (t.type === "empty") return;
     const D = t.data;
@@ -451,7 +454,8 @@ function drawWidget(d, ox, oy, showIds) {
             typeof v === "object" &&
             v.type &&
             (v.data || v.type === "ui_resource" || v.type === "empty") &&
-            /texture/i.test(k)
+            /texture/i.test(k) &&
+            d !== state.rootView
         )
             drawTexture(v, x, y, w, h);
     }
@@ -481,9 +485,24 @@ function renderFrame() {
     if (byId("s2").hidden || !state.rootView) return;
     const z = +byId("zoom").value,
         r = state.rootView,
-        pad = 8,
-        widgets = (r.size?.width || 50) + pad * 2,
-        H = (r.size?.height || 50) + pad * 2;
+        rw = r.size?.width || 50,
+        rh = r.size?.height || 50,
+        stage = document.querySelector(".stage"),
+        cs = getComputedStyle(stage),
+        sw =
+            stage.clientWidth -
+            parseFloat(cs.paddingLeft) -
+            parseFloat(cs.paddingRight),
+        sh =
+            stage.clientHeight -
+            parseFloat(cs.paddingTop) -
+            parseFloat(cs.paddingBottom);
+    const widgets = Math.max(Math.floor(sw / z), rw + 16),
+        H = Math.max(Math.floor(sh / z), rh + 24),
+        rx = Math.floor((widgets - rw) / 2),
+        ry = Math.floor((H - rh) / 2);
+    view.ox = rx;
+    view.oy = ry;
     if (previewCanvas.width !== widgets * z || previewCanvas.height !== H * z) {
         previewCanvas.width = widgets * z;
         previewCanvas.height = H * z;
@@ -495,15 +514,15 @@ function renderFrame() {
     previewCtx.imageSmoothingEnabled = false;
     previewCtx.clearRect(0, 0, widgets, H);
     previewCtx.save();
-    previewCtx.strokeStyle = "rgba(0,0,0,.25)";
+    previewCtx.strokeStyle = "rgba(255,255,255,.35)";
     previewCtx.lineWidth = 0.5;
     previewCtx.setLineDash([2, 2]);
-    previewCtx.strokeRect(pad, pad, widgets - pad * 2, H - pad * 2);
+    previewCtx.strokeRect(rx - 0.5, ry - 0.5, rw + 1, rh + 1);
     previewCtx.restore();
     drawWidget(
         r,
-        pad - (r.selfPosition?.x || 0),
-        pad - (r.selfPosition?.y || 0),
+        rx - (r.selfPosition?.x || 0),
+        ry - (r.selfPosition?.y || 0),
         byId("ids").checked,
     );
 }

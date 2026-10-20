@@ -1,11 +1,12 @@
 (() => {
   const PREVIEW_PADDING = 8;
-  const SEL_COLOR = "#ff3d3d",
-    SEL_WIDTH = 3;
+  const SEL_COLOR = "#4d8dff",
+    SEL_WIDTH = 2;
   const editor = {
     selection: new Set(),
     drag: null,
     marquee: null,
+    hover: null,
     palette: new Map(),
     clipboard: [],
     undoStack: [],
@@ -59,8 +60,8 @@
       state.root,
       null,
       null,
-      PREVIEW_PADDING - getNumber(sp, "x"),
-      PREVIEW_PADDING - getNumber(sp, "y"),
+      (view.ox ?? PREVIEW_PADDING) - getNumber(sp, "x"),
+      (view.oy ?? PREVIEW_PADDING) - getNumber(sp, "y"),
       0,
     );
     return out;
@@ -140,7 +141,25 @@
         id = getChild(n.data, "id")?.value || "";
 
       el.style.paddingLeft = 10 + n.depth * 14 + "px";
+      el.style.setProperty("--depth", n.depth);
       el.title = type + (id ? " #" + id : "");
+      const kind = /fluid/i.test(type)
+        ? "fluid"
+        : /slot/i.test(type)
+          ? "slot"
+          : /progress/i.test(type)
+            ? "prog"
+            : /group/i.test(type)
+              ? "group"
+              : /label|text/i.test(type)
+                ? "label"
+                : "other";
+      const dot = document.createElement("span");
+      dot.className = "t-ico";
+      dot.dataset.k = kind;
+      el.appendChild(dot);
+      el.onmouseenter = () => (editor.hover = n.data);
+      el.onmouseleave = () => (editor.hover = null);
       const tSpan = document.createElement("span");
       tSpan.className = "t-type";
       tSpan.textContent = type;
@@ -168,7 +187,8 @@
     const l = document.createElement("label"),
       i = document.createElement("input");
     const caption = document.createElement("span");
-    caption.textContent = label;
+    caption.textContent = label.replace(/([a-z])([A-Z])/g, "$1 $2");
+    caption.title = label;
     l.appendChild(caption);
     if (kind === "checkbox") {
       i.type = "checkbox";
@@ -222,8 +242,8 @@
     box.className = "";
     const l = selectedWidgets();
     if (!l.length) {
-      box.textContent =
-        "Click a widget in the preview or the tree. Shift/Ctrl+click to multi-select, drag on empty space to box-select.";
+      box.innerHTML =
+        '<svg class="ico big"><use href="#i-multi"/></svg><b>Nothing selected</b><span>Click a widget in the preview or the tree</span><ul><li><kbd>Shift</kbd> click to multi-select</li><li>Drag on empty space to box-select</li><li><kbd>Arrows</kbd> nudge, <kbd>Del</kbd> delete</li></ul>';
       box.className = "empty";
       return;
     }
@@ -238,29 +258,42 @@
       return;
     }
     const d = l[0].data;
+    const sec = (name) => {
+      const e = document.createElement("div");
+      e.className = "insp-sec";
+      const h = document.createElement("h4");
+      h.textContent = name;
+      e.appendChild(h);
+      return e;
+    };
+    const pos = document.createElement("div");
+    pos.className = "insp-grid";
+    box.appendChild(pos);
+    const props = sec("Properties"),
+      tex = sec("Textures");
     addField(
-      box,
+      pos,
       "x",
       getNumber(getChild(d, "selfPosition"), "x"),
       (v) => setIntChild(ensureCompound(d, "selfPosition"), "x", v),
       "number",
     );
     addField(
-      box,
+      pos,
       "y",
       getNumber(getChild(d, "selfPosition"), "y"),
       (v) => setIntChild(ensureCompound(d, "selfPosition"), "y", v),
       "number",
     );
     addField(
-      box,
+      pos,
       "width",
       getNumber(getChild(d, "size"), "width"),
       (v) => setIntChild(ensureCompound(d, "size"), "width", v),
       "number",
     );
     addField(
-      box,
+      pos,
       "height",
       getNumber(getChild(d, "size"), "height"),
       (v) => setIntChild(ensureCompound(d, "size"), "height", v),
@@ -269,30 +302,36 @@
     for (const [k, tag] of d.value) {
       if (["selfPosition", "size", "children"].includes(k)) continue;
       if (tag.kind === TAG.BYTE)
-        addField(box, k, tag.value, (v) => (tag.value = v ? 1 : 0), "checkbox");
+        addField(
+          props,
+          k,
+          tag.value,
+          (v) => (tag.value = v ? 1 : 0),
+          "checkbox",
+        );
       else if (
         [TAG.SHORT, TAG.INT, TAG.LONG, TAG.FLOAT, TAG.DOUBLE].includes(tag.kind)
       )
         addField(
-          box,
+          props,
           k,
           tag.value,
           (v) =>
-          (tag.value =
-            tag.kind === TAG.LONG
-              ? BigInt(Math.round(v))
-              : [TAG.FLOAT, TAG.DOUBLE].includes(tag.kind)
-                ? v
-                : Math.round(v)),
+            (tag.value =
+              tag.kind === TAG.LONG
+                ? BigInt(Math.round(v))
+                : [TAG.FLOAT, TAG.DOUBLE].includes(tag.kind)
+                  ? v
+                  : Math.round(v)),
           "number",
         );
       else if (tag.kind === TAG.STRING)
-        addField(box, k, tag.value, (v) => (tag.value = v));
+        addField(props, k, tag.value, (v) => (tag.value = v));
       else if (tag.kind === TAG.COMPOUND && /texture/i.test(k)) {
         const loc = findImageLocation(tag);
         if (loc)
           addField(
-            box,
+            tex,
             k,
             loc.value,
             (v) => (loc.value = v),
@@ -301,6 +340,8 @@
           );
       }
     }
+    if (props.children.length > 1) box.appendChild(props);
+    if (tex.children.length > 1) box.appendChild(tex);
     addButtons(box, [
       ["Duplicate", duplicateSelection],
       ["Delete", deleteSelection],
@@ -410,9 +451,9 @@
   }
 
   const fillPaletteOptions = () =>
-  (byId("proto").innerHTML = [...editor.palette.keys()]
-    .map((t) => `<option>${t}</option>`)
-    .join(""));
+    (byId("proto").innerHTML = [...editor.palette.keys()]
+      .map((t) => `<option>${t}</option>`)
+      .join(""));
   async function loadPaletteFrom(u8) {
     if (u8[0] === 0x1f && u8[1] === 0x8b)
       u8 = new Uint8Array(
@@ -450,7 +491,7 @@
   const isOverlayEntry = (e) =>
     /\/overlay\//.test(
       getChild(getChild(getChild(e, "p"), "data"), "imageLocation")?.value ||
-      "",
+        "",
     );
   const makeIconEntry = (loc) =>
     fromSnbt(
@@ -652,7 +693,6 @@
           )
             pts.push([k * step, r * step]);
       if (c.shape === "frame") {
-
         const at = (k, r) =>
           pts.find((p) => p[0] === k * step && p[1] === r * step);
         const o = [];
@@ -753,7 +793,7 @@
     const ch =
       getChild(gd, "children") ||
       (gd.value.set("children", { kind: TAG.LIST, value: [] }),
-        getChild(gd, "children"));
+      getChild(gd, "children"));
     ch.value = [];
     L.slots.forEach(([x, y], i) => {
       const s = structuredClone(slotProto),
@@ -764,7 +804,6 @@
       ch.value.push(s);
     });
     if (c.grow) {
-
       if (hw < gx + L.w) setIntChild(hsz, "width", gx + L.w);
       if (hh < gy + L.h) setIntChild(hsz, "height", gy + L.h);
     }
@@ -1133,10 +1172,10 @@
     .querySelectorAll("[data-rot]")
     .forEach(
       (b) =>
-      (b.onclick = () => (
-        (pm("#progRot").value = b.dataset.rot),
-        setRotation(+b.dataset.rot)
-      )),
+        (b.onclick = () => (
+          (pm("#progRot").value = b.dataset.rot),
+          setRotation(+b.dataset.rot)
+        )),
     );
   const applyEmptyFromForm = () => {
     syncEmptyWrap();
@@ -1203,7 +1242,7 @@
     baseShapesClick = byId("shapes").onclick;
   byId("icons").onclick = (e) => (closeProgMenu(), baseIconsClick2(e));
   byId("shapes").onclick = (e) => (closeProgMenu(), baseShapesClick(e));
-  function toast(msg) {
+  function toast(msg, kind) {
     let t = byId("toast");
     if (!t) {
       t = document.createElement("div");
@@ -1211,14 +1250,18 @@
       document.body.appendChild(t);
     }
     t.textContent = msg;
-    t.classList.add("show");
+    t.className =
+      "show " +
+      (kind || (/fail|invalid|error|cannot|not/i.test(msg) ? "warn" : ""));
     clearTimeout(t._h);
-    t._h = setTimeout(() => t.classList.remove("show"), 5000);
+    t._h = setTimeout(() => (t.className = ""), 5000);
   }
   byId("imp").onchange = async (e) => {
     const added = [];
     for (const f of e.target.files)
-      added.push(...(await loadPaletteFrom(new Uint8Array(await f.arrayBuffer()))));
+      added.push(
+        ...(await loadPaletteFrom(new Uint8Array(await f.arrayBuffer()))),
+      );
     e.target.value = "";
     if (added.length) byId("proto").value = added[0];
     toast(
@@ -1234,7 +1277,7 @@
 
   const overlayCanvas = document.createElement("canvas");
   overlayCanvas.style.cssText =
-    "position:absolute;left:10px;top:10px;outline:none;cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none";
+    "position:absolute;left:0;top:0;outline:none;cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none";
   previewCanvas.parentNode.style.position = "relative";
   previewCanvas.parentNode.appendChild(overlayCanvas);
   const getZoom = () => +byId("zoom").value;
@@ -1250,6 +1293,48 @@
     typeof matchMedia === "function" && matchMedia(query).matches;
   const isCoarsePointer = mediaMatches("(pointer: coarse)"),
     HANDLE_SIZE = isCoarsePointer ? 16 : 8;
+  const EDGE_CURSOR = {
+    l: "ew-resize",
+    r: "ew-resize",
+    t: "ns-resize",
+    b: "ns-resize",
+  };
+  const GRIP_W = 22,
+    GRIP_H = 5;
+  const onGrip = (p) => {
+    const r = collectWidgets()[0];
+    return (
+      p.x >= r.x &&
+      p.x < r.x + GRIP_W &&
+      p.y >= r.y + r.h &&
+      p.y < r.y + r.h + GRIP_H
+    );
+  };
+  const hitEdge = (p, w, tol) => {
+    const inX = p.x >= w.x - tol && p.x <= w.x + w.w + tol,
+      inY = p.y >= w.y - tol && p.y <= w.y + w.h + tol;
+    const c = [];
+    if (inY)
+      c.push(["l", Math.abs(p.x - w.x)], ["r", Math.abs(p.x - (w.x + w.w))]);
+    if (inX)
+      c.push(["t", Math.abs(p.y - w.y)], ["b", Math.abs(p.y - (w.y + w.h))]);
+    const best = c.filter((v) => v[1] <= tol).sort((a, b) => a[1] - b[1])[0];
+    return best ? best[0] : null;
+  };
+  overlayCanvas.addEventListener("pointermove", (e) => {
+    if (editor.drag) return;
+    const one =
+      !editor.panMode && editor.selection.size === 1
+        ? selectedWidgets()[0]
+        : null;
+    const q = pointerPosition(e),
+      edge = one && hitEdge(q, one, (isCoarsePointer ? 16 : 5) / getZoom());
+    overlayCanvas.style.cursor = onGrip(q)
+      ? "pointer"
+      : edge
+        ? EDGE_CURSOR[edge]
+        : "crosshair";
+  });
   overlayCanvas.onpointerdown = (e) => {
     if (editor.panMode || e.isPrimary === false) return;
     if (overlayCanvas.setPointerCapture)
@@ -1258,15 +1343,21 @@
       mod = e.shiftKey || e.ctrlKey || e.metaKey || editor.multiSelect,
       tol = (isCoarsePointer ? 16 : 4) / getZoom();
     const one = editor.selection.size === 1 ? selectedWidgets()[0] : null;
-    if (
-      one &&
-      Math.abs(p.x - (one.x + one.w)) <= tol &&
-      Math.abs(p.y - (one.y + one.h)) <= tol
-    ) {
+    if (onGrip(p)) {
+      editor.selection = new Set([collectWidgets()[0].data]);
+      refreshPanels();
+      return;
+    }
+    const edge = one && hitEdge(p, one, tol);
+    if (edge) {
       pushHistory();
+      const sp = getChild(one.data, "selfPosition");
       editor.drag = {
         mode: "size",
+        edge,
         p,
+        sx: getNumber(sp, "x"),
+        sy: getNumber(sp, "y"),
         w: one.w,
         h: one.h,
         data: one.data,
@@ -1343,16 +1434,31 @@
         setIntChild(ensureCompound(i.data, "selfPosition"), "y", i.y + dy);
       });
     else {
-      setIntChild(
-        ensureCompound(D.data, "size"),
-        "width",
-        Math.max(1, D.w + dx),
-      );
-      setIntChild(
-        ensureCompound(D.data, "size"),
-        "height",
-        Math.max(1, D.h + dy),
-      );
+      const E = D.edge,
+        isRoot = D.data === state.root,
+        k = isRoot ? 2 : 1;
+      let nw = D.w,
+        nh = D.h,
+        nx = D.sx,
+        ny = D.sy;
+      if (E === "r") nw = Math.max(1, D.w + dx * k);
+      if (E === "b") nh = Math.max(1, D.h + dy * k);
+      if (E === "l") {
+        nw = Math.max(1, D.w - dx * k);
+        nx = D.sx + D.w - nw;
+      }
+      if (E === "t") {
+        nh = Math.max(1, D.h - dy * k);
+        ny = D.sy + D.h - nh;
+      }
+      const sz = ensureCompound(D.data, "size");
+      setIntChild(sz, "width", nw);
+      setIntChild(sz, "height", nh);
+      if (!isRoot && (E === "l" || E === "t")) {
+        const sp = ensureCompound(D.data, "selfPosition");
+        setIntChild(sp, "x", nx);
+        setIntChild(sp, "y", ny);
+      }
     }
     commit(true);
   });
@@ -1410,11 +1516,12 @@
     })(d);
     return inn && out ? "IN/OUT" : inn ? "INPUT" : out ? "OUTPUT" : "";
   }
+  // Input/Output preview groups
   function drawIoGroups(c, z) {
     c.save();
     c.setLineDash([]);
     c.lineWidth = 2;
-    c.strokeStyle = "#000";
+    c.strokeStyle = "#4f4f4f";
     c.font = "bold " + Math.round(3.5 * z) + "px monospace";
     collectWidgets().forEach((n) => {
       if (!n.wrap || getChild(n.wrap, "type")?.value !== "group") return;
@@ -1453,19 +1560,53 @@
       console.error("IO groups overlay:", err);
     }
     c.setLineDash([]);
-    c.strokeStyle = c.fillStyle = SEL_COLOR;
-    c.lineWidth = SEL_WIDTH;
+    {
+      const g = collectWidgets()[0];
+      c.fillStyle = editor.selection.has(g.data) ? SEL_COLOR : "#2c2f36";
+      c.fillRect(g.x * z, (g.y + g.h) * z, GRIP_W * z, GRIP_H * z);
+      c.fillStyle = "#fff";
+      c.font = "bold " + Math.round(3.5 * z) + "px monospace";
+      c.textBaseline = "middle";
+      c.fillText("ROOT", g.x * z + 2, (g.y + g.h + GRIP_H / 2) * z);
+    }
+    if (editor.hover && !editor.selection.has(editor.hover)) {
+      const h = collectWidgets().find((n) => n.data === editor.hover);
+      if (h) {
+        c.fillStyle = "rgba(77,141,255,.18)";
+        c.strokeStyle = "rgba(77,141,255,.9)";
+        c.lineWidth = 1;
+        c.fillRect(h.x * z, h.y * z, h.w * z, h.h * z);
+        c.strokeRect(h.x * z + 0.5, h.y * z + 0.5, h.w * z - 1, h.h * z - 1);
+      }
+    }
+    c.lineWidth = SEL_WIDTH + 2;
+    c.strokeStyle = "rgba(0,0,0,.75)";
     l.forEach((n) => c.strokeRect(n.x * z, n.y * z, n.w * z, n.h * z));
-    if (l.length === 1)
-      c.fillRect(
-        (l[0].x + l[0].w) * z - HANDLE_SIZE / 2,
-        (l[0].y + l[0].h) * z - HANDLE_SIZE / 2,
-        HANDLE_SIZE,
-        HANDLE_SIZE,
-      );
+    c.lineWidth = SEL_WIDTH;
+    c.strokeStyle = c.fillStyle = SEL_COLOR;
+    l.forEach((n) => c.strokeRect(n.x * z, n.y * z, n.w * z, n.h * z));
+    if (l.length === 1) {
+      const w = l[0],
+        t = HANDLE_SIZE * 0.6,
+        lenH = Math.max(t, Math.min(HANDLE_SIZE * 2.4, w.w * z * 0.6)),
+        lenV = Math.max(t, Math.min(HANDLE_SIZE * 2.4, w.h * z * 0.6)),
+        cx = (w.x + w.w / 2) * z,
+        cy = (w.y + w.h / 2) * z;
+      c.fillStyle = "#fff";
+      c.lineWidth = 1.5;
+      [
+        [cx - lenH / 2, w.y * z - t / 2, lenH, t],
+        [cx - lenH / 2, (w.y + w.h) * z - t / 2, lenH, t],
+        [w.x * z - t / 2, cy - lenV / 2, t, lenV],
+        [(w.x + w.w) * z - t / 2, cy - lenV / 2, t, lenV],
+      ].forEach((r) => {
+        c.fillRect(...r);
+        c.strokeRect(...r);
+      });
+    }
     if (editor.marquee) {
       const b = editor.marquee;
-      c.fillStyle = "rgba(68,170,255,.15)";
+      c.fillStyle = "rgba(77,141,255,.15)";
       c.fillRect(b.x1 * z, b.y1 * z, (b.x2 - b.x1) * z, (b.y2 - b.y1) * z);
       c.setLineDash([4, 3]);
       c.strokeRect(
@@ -1512,7 +1653,7 @@
       v === undefined
         ? (v = localStorage.getItem(k))
         : localStorage.setItem(k, v);
-    } catch (e) { }
+    } catch (e) {}
     return v;
   };
   const setPaneWidth = (el, w) => {
@@ -1588,15 +1729,100 @@
   addAction("Paste", paste, "paste");
   addAction("Duplicate", duplicateSelection, "dup");
   addAction("Delete", deleteSelection, "trash");
+  const rectOf = (d) => {
+    const sp = getChild(d, "selfPosition"),
+      sz = getChild(d, "size");
+    return {
+      x: getNumber(sp, "x"),
+      y: getNumber(sp, "y"),
+      w: getNumber(sz, "width"),
+      h: getNumber(sz, "height"),
+    };
+  };
+  const kidsOf = (d) =>
+    (getChild(d, "children")?.value || [])
+      .map((c) => getChild(c, "data"))
+      .filter(Boolean)
+      .map((k) => ({ k, r: rectOf(k) }));
+  const boundsOf = (kids) => ({
+    x1: Math.min(...kids.map((o) => o.r.x)),
+    y1: Math.min(...kids.map((o) => o.r.y)),
+    x2: Math.max(...kids.map((o) => o.r.x + o.r.w)),
+    y2: Math.max(...kids.map((o) => o.r.y + o.r.h)),
+  });
+  const shiftKids = (kids, dx, dy) =>
+    kids.forEach(({ k, r }) => {
+      const sp = ensureCompound(k, "selfPosition");
+      setIntChild(sp, "x", r.x + dx);
+      setIntChild(sp, "y", r.y + dy);
+    });
+  const centerContents = () => {
+    const all = collectWidgets(),
+      sel = selectedWidgets();
+    let targets;
+    if (sel.length) {
+      const set = new Set();
+      sel.forEach((n) => {
+        const host = getChild(n.data, "children")?.value.length
+          ? n
+          : all.find((a) => a.data === n.parent);
+        if (host) set.add(host.data);
+      });
+      targets = [...set];
+    } else
+      targets = all
+        .filter(
+          (n) =>
+            n.wrap &&
+            getChild(n.wrap, "type")?.value === "group" &&
+            ioKindOf(n.data),
+        )
+        .map((n) => n.data);
+    targets = targets.filter((d) => kidsOf(d).length);
+    if (!targets.length) return toast("No groups to center");
+    pushHistory();
+    targets.forEach((d) => {
+      const kids = kidsOf(d),
+        b = boundsOf(kids),
+        g = rectOf(d);
+      shiftKids(
+        kids,
+        Math.round((g.w - (b.x2 - b.x1)) / 2 - b.x1),
+        Math.round((g.h - (b.y2 - b.y1)) / 2 - b.y1),
+      );
+    });
+    commit();
+  };
+  const fitRoot = () => {
+    const kids = kidsOf(state.root);
+    if (!kids.length) return toast("Root has no children");
+    pushHistory();
+    const b = boundsOf(kids);
+    shiftKids(kids, -b.x1, -b.y1);
+    const sz = ensureCompound(state.root, "size");
+    setIntChild(sz, "width", b.x2 - b.x1);
+    setIntChild(sz, "height", b.y2 - b.y1);
+    commit();
+  };
   addAction("Select all", selectAllWidgets, "all");
-  addAction("Multi-select", (button) => {
-    editor.multiSelect = !editor.multiSelect;
-    button.classList.toggle("on", editor.multiSelect);
-  }, "multi");
-  addAction("Pan", (button) => {
-    editor.panMode = !editor.panMode;
-    button.classList.toggle("on", editor.panMode);
-  }, "pan");
+  addAction("Center contents in group", centerContents, "center");
+  addAction("Fit root to contents", fitRoot, "fit");
+  addAction(
+    "Multi-select",
+    (button) => {
+      editor.multiSelect = !editor.multiSelect;
+      button.classList.toggle("on", editor.multiSelect);
+    },
+    "multi",
+  );
+  addAction(
+    "Pan",
+    (button) => {
+      editor.panMode = !editor.panMode;
+      button.classList.toggle("on", editor.panMode);
+    },
+    "pan",
+  );
 
   const rightBar = document.querySelector(".right .bar");
   rightBar.after(actionBar);
