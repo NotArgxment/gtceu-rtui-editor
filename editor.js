@@ -1329,11 +1329,12 @@
         : null;
     const q = pointerPosition(e),
       edge = one && hitEdge(q, one, (isCoarsePointer ? 16 : 5) / getZoom());
-    overlayCanvas.style.cursor = onGrip(q)
-      ? "pointer"
-      : edge
-        ? EDGE_CURSOR[edge]
-        : "crosshair";
+    overlayCanvas.style.cursor =
+      onGrip(q) || ioLabelAt(q)
+        ? "pointer"
+        : edge
+          ? EDGE_CURSOR[edge]
+          : "crosshair";
   });
   overlayCanvas.onpointerdown = (e) => {
     if (editor.panMode || e.isPrimary === false) return;
@@ -1348,7 +1349,8 @@
       refreshPanels();
       return;
     }
-    const edge = one && hitEdge(p, one, tol);
+    const ioGroup = ioLabelAt(p);
+    const edge = !ioGroup && one && hitEdge(p, one, tol);
     if (edge) {
       pushHistory();
       const sp = getChild(one.data, "selfPosition");
@@ -1365,7 +1367,9 @@
       };
       return;
     }
-    const h = findWidgetAt(p.x, p.y);
+    const h = ioGroup
+      ? collectWidgets().find((n) => n.data === ioGroup)
+      : findWidgetAt(p.x, p.y);
     if (!h || !h.wrap) {
       editor.drag = {
         mode: "box",
@@ -1517,25 +1521,56 @@
     return inn && out ? "IN/OUT" : inn ? "INPUT" : out ? "OUTPUT" : "";
   }
   // Input/Output preview groups
+  function ioLabelRects(c, z) {
+    c.save();
+    c.font = "bold " + Math.round(3.5 * z) + "px monospace";
+    const rects = [];
+    collectWidgets().forEach((n) => {
+      if (!n.wrap || getChild(n.wrap, "type")?.value !== "group") return;
+      const kind = ioKindOf(n.data);
+      if (!kind) return;
+      const tw = c.measureText(kind).width + 4,
+        th = Math.round(4.5 * z),
+        ty = Math.max(0, n.y * z - th);
+      rects.push({
+        data: n.data,
+        kind,
+        group: n,
+        x: n.x,
+        y: ty / z,
+        w: tw / z,
+        h: th / z,
+      });
+    });
+    c.restore();
+    return rects;
+  }
+
+  function ioLabelAt(p) {
+    if (!(byId("grp")?.checked ?? true)) return null;
+    const rects = ioLabelRects(overlayCanvas.getContext("2d"), getZoom());
+    for (let i = rects.length - 1; i >= 0; i--) {
+      const r = rects[i];
+      if (p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h)
+        return r.data;
+    }
+    return null;
+  }
+
   function drawIoGroups(c, z) {
     c.save();
     c.setLineDash([]);
     c.lineWidth = 2;
     c.strokeStyle = "#4f4f4f";
     c.font = "bold " + Math.round(3.5 * z) + "px monospace";
-    collectWidgets().forEach((n) => {
-      if (!n.wrap || getChild(n.wrap, "type")?.value !== "group") return;
-      const kind = ioKindOf(n.data);
-      if (!kind) return;
+    ioLabelRects(c, z).forEach((r) => {
+      const n = r.group;
       c.strokeRect(n.x * z, n.y * z, n.w * z, n.h * z);
-      const tw = c.measureText(kind).width + 4,
-        th = Math.round(4.5 * z),
-        ty = Math.max(0, n.y * z - th);
-      c.fillStyle = "#000";
-      c.fillRect(n.x * z, ty, tw, th);
+      c.fillStyle = editor.selection.has(r.data) ? SEL_COLOR : "#000";
+      c.fillRect(r.x * z, r.y * z, r.w * z, r.h * z);
       c.fillStyle = "#fff";
       c.textBaseline = "middle";
-      c.fillText(kind, n.x * z + 2, ty + th / 2);
+      c.fillText(r.kind, r.x * z + 2, r.y * z + (r.h * z) / 2);
     });
     c.restore();
   }
